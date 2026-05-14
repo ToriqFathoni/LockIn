@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button, CustomModal } from "../ui";
+import { useAuth } from "@/context/AuthContext";
 
 export const PostJobPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user && user.role !== "client") {
+      router.push("/home");
+    }
+  }, [user, router]);
+
+  if (!user || user.role !== "client") return null;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

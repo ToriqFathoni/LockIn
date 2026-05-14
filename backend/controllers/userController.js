@@ -9,7 +9,12 @@ async function register(req, res) {
     }
 
     const user = await userService.createUser({ name, email, password, role });
-    return res.status(201).json({ user });
+    
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'change-me', {
+      expiresIn: '7d',
+    });
+
+    return res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (err) {
     if (err && err.code === '23505') {
       return res.status(409).json({ error: 'Email already exists' });

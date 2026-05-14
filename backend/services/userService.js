@@ -2,7 +2,7 @@ const db = require('../database');
 const bcrypt = require('bcrypt');
 const freelancerProfileService = require('./freelancerProfileService');
 
-async function createUser({ name, email, password, role = 'user' }) {
+async function createUser({ name, email, password, role = 'freelancer' }) {
   const hashed = await bcrypt.hash(password, 10);
   const client = await db.pool.connect();
 

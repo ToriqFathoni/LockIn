@@ -59,10 +59,23 @@ async function getAllProjects(clientId) {
   return result.rows;
 }
 
+async function getAllPublicProjects() {
+  const result = await db.query(
+    `SELECT p.*, u.name AS client_name
+     FROM projects p
+     JOIN users u ON u.id = p.client_id
+     WHERE p.status = 'open'
+     ORDER BY p.created_at DESC
+     LIMIT 50`
+  );
+  return result.rows;
+}
+
 module.exports = {
   createProjectForClient,
   updateProjectForClient,
   deleteProjectForClient,
   getProjectById,
   getAllProjects,
+  getAllPublicProjects,
 };

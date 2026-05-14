@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { mockJobs, mockUser, colors } from "../data";
 import type { Job } from "../types";
+import { useAuth } from "@/context/AuthContext";
 import {
   IconBriefcase,
   IconCheckCircle,
@@ -31,7 +32,13 @@ const navItems = [
 export const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, logout } = useAuth();
   const isLanding = pathname === "/";
+
+  const filteredNavItems = navItems.filter((tab) => {
+    if (tab.href === "/post-job" && user?.role !== "client") return false;
+    return true;
+  });
 
   return (
     <nav className={`fixed w-full top-0 z-50 transition-all duration-300 ${isLanding ? "bg-white py-4" : "bg-white/80 backdrop-blur-md shadow-sm py-2 border-b border-slate-100"}`}>
@@ -48,7 +55,7 @@ export const Navbar = () => {
 
         {!isLanding ? (
           <div className="hidden md:flex items-center space-x-1 bg-slate-50 p-1 rounded-full border border-slate-100 flex-nowrap overflow-x-auto hide-scrollbar">
-            {navItems.map((tab) => (
+            {filteredNavItems.map((tab) => (
               <button key={tab.href} onClick={() => router.push(tab.href)} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${pathname === tab.href ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/50"}`} style={{ color: pathname === tab.href ? colors.primary : "" }}>
                 <tab.icon />
                 {tab.label}
@@ -58,15 +65,32 @@ export const Navbar = () => {
         ) : null}
 
         <div className="flex items-center gap-4 shrink-0">
-          {isLanding ? (
+          {isLanding && !user ? (
             <>
-              <Button variant="ghost" onClick={() => router.push("/home")} className="hidden sm:flex">Log In</Button>
-              <Button variant="primary" onClick={() => router.push("/home")}>Sign Up</Button>
+              <Button variant="ghost" onClick={() => router.push("/login")} className="hidden sm:flex">Log In</Button>
+              <Button variant="primary" onClick={() => router.push("/register")}>Sign Up</Button>
             </>
-          ) : (
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold cursor-pointer shadow-md border-2 border-white hover:ring-2 transition-all" style={{ backgroundColor: colors.primary }} onClick={() => router.push("/profile") }>
-              {mockUser.name.charAt(0)}
+          ) : user ? (
+            <div className="flex items-center gap-3">
+              {isLanding && (
+                <Button variant="ghost" onClick={() => router.push("/home")} className="hidden sm:flex">Find Work</Button>
+              )}
+              <div className="relative group">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold cursor-pointer shadow-md border-2 border-white hover:ring-2 transition-all" style={{ backgroundColor: colors.primary }} onClick={() => router.push("/profile")}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-lg border border-slate-100 p-2 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <p className="px-3 py-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">{user.name}</p>
+                  <button onClick={() => router.push("/profile")} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">Profile Saya</button>
+                  <button onClick={() => { logout(); router.push("/"); }} className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors">Keluar</button>
+                </div>
+              </div>
             </div>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => router.push("/login")} className="hidden sm:flex">Log In</Button>
+              <Button variant="primary" onClick={() => router.push("/register")}>Sign Up</Button>
+            </>
           )}
         </div>
       </div>
@@ -172,9 +196,36 @@ export const LandingPage = () => {
 
 export const HomePage = () => {
   const router = useRouter();
+  const { token } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("Recommended Jobs");
-  const filteredJobs = mockJobs.filter((job) => job.title.toLowerCase().includes(searchTerm.toLowerCase()) || job.skills.some((skill) => skill.toLowerCase().includes(searchTerm.toLowerCase())));
+  const [apiJobs, setApiJobs] = useState<Job[]>([]);
+  const [isFetching, setIsFetching] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+
+  useEffect(() => {
+    async function loadJobs() {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/projects/public`);
+        if (!res.ok) throw new Error("Gagal memuat data");
+        const data = await res.json();
+        if (data.projects && data.projects.length > 0) {
+          setApiJobs(data.projects);
+        } else {
+          setApiJobs(mockJobs as unknown as Job[]);
+        }
+      } catch {
+        setApiJobs(mockJobs as unknown as Job[]);
+        setFetchError("Menggunakan data contoh — tidak dapat terhubung ke server.");
+      } finally {
+        setIsFetching(false);
+      }
+    }
+    loadJobs();
+  }, []);
+
+  const jobsSource = apiJobs.length > 0 ? apiJobs : (mockJobs as unknown as Job[]);
+  const filteredJobs = jobsSource.filter((job) => job.title.toLowerCase().includes(searchTerm.toLowerCase()) || (job.skills && job.skills.some((skill) => skill.toLowerCase().includes(searchTerm.toLowerCase()))));
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -184,6 +235,9 @@ export const HomePage = () => {
           <input type="text" placeholder="Search for jobs or skills..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all text-slate-700" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
         </div>
       </div>
+      {fetchError && (
+        <div className="mb-4 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-sm">{fetchError}</div>
+      )}
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="hidden lg:block w-64 shrink-0">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-24">
@@ -193,7 +247,11 @@ export const HomePage = () => {
         </div>
         <div className="flex-1">
           <div className="flex gap-6 mb-6 border-b border-slate-200">{["Recommended Jobs", "Saved Jobs"].map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === tab ? "text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>{tab}{activeTab === tab ? <div className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-full" style={{ backgroundColor: colors.primary }} /> : null}</button>))}</div>
-          <div className="space-y-4">{filteredJobs.length > 0 ? filteredJobs.map((job) => (<div key={job.id} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer group" onClick={() => router.push(`/jobs/${job.id}`)}><div className="flex justify-between items-start mb-2"><h3 className="text-xl font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors">{job.title}</h3></div><div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500 mb-4"><span className="flex items-center gap-1"><IconClock /> {job.type}</span><span>•</span><span className="flex items-center gap-1 text-slate-700"><IconDollar /> {job.budget}</span><span>•</span><span>Est. Time: {job.duration}</span></div><p className="text-slate-600 mb-6 line-clamp-2 leading-relaxed text-sm">{job.description}</p><div className="flex flex-wrap gap-2 mb-6">{job.skills.map((skill) => (<Badge key={skill} text={skill} type="default" />))}</div><div className="flex items-center justify-between pt-4 border-t border-slate-100"><div className="flex items-center gap-3 text-sm">{job.client.verified ? (<span className="flex items-center gap-1 text-green-600 font-medium"><IconCheckCircle /> Payment verified</span>) : (<span className="text-slate-500 font-medium">Payment unverified</span>)}<span className="text-slate-300">|</span><Rating score={job.client.rating} /><span className="text-slate-300">|</span><span className="flex items-center gap-1 text-slate-500"><IconMapPin /> {job.client.location}</span></div><span className="text-xs text-slate-400">{job.postedAt}</span></div></div>)) : (<div className="text-center py-20 bg-white rounded-3xl border border-slate-200"><h3 className="text-lg font-bold text-slate-800 mb-2">No jobs found</h3></div>)}</div>
+          {isFetching ? (
+            <div className="space-y-4">{[1, 2, 3].map((i) => (<div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 animate-pulse"><div className="h-6 bg-slate-100 rounded-full w-2/3 mb-4" /><div className="h-4 bg-slate-100 rounded-full w-full mb-2" /><div className="h-4 bg-slate-100 rounded-full w-5/6" /></div>))}</div>
+          ) : (
+            <div className="space-y-4">{filteredJobs.length > 0 ? filteredJobs.map((job) => (<div key={job.id} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer group" onClick={() => router.push(`/jobs/${job.id}`)}><div className="flex justify-between items-start mb-2"><h3 className="text-xl font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors">{job.title}</h3></div><div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500 mb-4"><span className="flex items-center gap-1"><IconClock /> {job.type ?? "Project"}</span><span>•</span><span className="flex items-center gap-1 text-slate-700"><IconDollar /> {job.budget ?? (job as unknown as Record<string, string>).budget_min ?? "Negotiable"}</span><span>•</span><span>Est. Time: {job.duration ?? "TBD"}</span></div><p className="text-slate-600 mb-6 line-clamp-2 leading-relaxed text-sm">{job.description}</p><div className="flex flex-wrap gap-2 mb-6">{(job.skills ?? []).map((skill) => (<Badge key={skill} text={skill} type="default" />))}</div><div className="flex items-center justify-between pt-4 border-t border-slate-100"><div className="flex items-center gap-3 text-sm">{job.client?.verified ? (<span className="flex items-center gap-1 text-green-600 font-medium"><IconCheckCircle /> Payment verified</span>) : (<span className="text-slate-500 font-medium">{(job as unknown as Record<string, string>).client_name ?? "Client"}</span>)}<span className="text-slate-300">|</span><span className="flex items-center gap-1 text-slate-500"><IconMapPin /> {job.client?.location ?? (job as unknown as Record<string, string>).location ?? "Remote"}</span></div><span className="text-xs text-slate-400">{job.postedAt ?? "Baru saja"}</span></div></div>)) : (<div className="text-center py-20 bg-white rounded-3xl border border-slate-200"><h3 className="text-lg font-bold text-slate-800 mb-2">No jobs found</h3></div>)}</div>
+          )}
         </div>
       </div>
     </div>

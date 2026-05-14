@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 
-const defaultOrigins = ['http://localhost:3000'];
+const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001'];
 const allowedOrigins = process.env.CORS_ORIGIN
   ? [...new Set(process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean).concat(defaultOrigins))]
   : defaultOrigins;
@@ -16,8 +16,7 @@ app.use(
 );
 
 app.use(express.json());
-
-// Routes
+// Routes 
 app.use('/user', require('./routes/userRoutes'));
 app.use('/freelancer-profile', require('./routes/freelancerProfileRoutes'));
 app.use('/freelancer-skill', require('./routes/freelancerSkillRoutes'));

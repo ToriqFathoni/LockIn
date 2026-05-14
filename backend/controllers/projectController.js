@@ -144,10 +144,21 @@ async function getProjectById(req, res) {
   }
 }
 
+async function getPublicProjects(req, res) {
+  try {
+    const projects = await projectService.getAllPublicProjects();
+    return res.json({ projects });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
 module.exports = {
   createProject,
   updateProject,
   deleteProject,
   getAllProjects,
   getProjectById,
+  getPublicProjects,
 };
