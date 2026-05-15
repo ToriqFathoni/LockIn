@@ -14,6 +14,9 @@ async function createProject(req, res) {
       budget_min = null,
       budget_max = null,
       status = 'open',
+      skills = [],
+      estimated_time = null,
+      job_type = null,
       expires_at,
       expires_date,
       expries_date,
@@ -40,6 +43,9 @@ async function createProject(req, res) {
       budget_min,
       budget_max,
       status,
+      skills,
+      estimated_time,
+      job_type,
       expires_at: finalExpiresAt,
     });
     return res.status(201).json({ project });
@@ -59,6 +65,9 @@ async function updateProject(req, res) {
       budget_min,
       budget_max,
       status,
+      skills,
+      estimated_time,
+      job_type,
       expires_at,
       expires_date,
       expries_date,
@@ -81,6 +90,9 @@ async function updateProject(req, res) {
     if (budget_min !== undefined) payload.budget_min = budget_min;
     if (budget_max !== undefined) payload.budget_max = budget_max;
     if (status !== undefined) payload.status = status;
+    if (skills !== undefined) payload.skills = skills;
+    if (estimated_time !== undefined) payload.estimated_time = estimated_time;
+    if (job_type !== undefined) payload.job_type = job_type;
     if (finalExpiresAt !== undefined) payload.expires_at = finalExpiresAt;
 
     const project = await projectService.updateProjectForClient(projectId, clientId, payload);

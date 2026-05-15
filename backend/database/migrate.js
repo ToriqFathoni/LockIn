@@ -35,6 +35,14 @@ async function runMigrations() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await db.query(`
+      ALTER TABLE projects
+      ADD COLUMN IF NOT EXISTS skills TEXT[] DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS estimated_time TEXT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT NULL
+    `);
+    
+    console.log('Migration: users, freelancer_profiles, and projects columns ensured.');
 
     // 3. Drop existing chat tables to recreate with correct schema
     await db.query(`DROP TABLE IF EXISTS messages CASCADE`);
