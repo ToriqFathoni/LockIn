@@ -1,5 +1,6 @@
 const db = require('../database');
 const bcrypt = require('bcrypt');
+
 function normalizeList(value) {
   if (!value) return [];
   if (Array.isArray(value)) {
