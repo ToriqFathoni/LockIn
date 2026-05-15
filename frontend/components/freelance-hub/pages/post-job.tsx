@@ -64,15 +64,27 @@ export const PostJobPage = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Metode Pembayaran Pilihan</label>
-            <p className="text-xs text-slate-500 mb-3">Pilih metode yang akan Anda gunakan untuk membayar freelancer nanti.</p>
-            <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8cbbed] text-slate-700" defaultValue="" required>
-              <option value="" disabled>Pilih Metode Transfer...</option>
-              <option value="BCA">Transfer Bank (BCA)</option>
-              <option value="Mandiri">Transfer Bank (Mandiri)</option>
-              <option value="BNI">Transfer Bank (BNI)</option>
-              <option value="E-Wallet">E-Wallet (GoPay / OVO)</option>
-            </select>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Skill Requirement</label>
+            <input type="text" placeholder="Cth: PostgreSQL, Javascript, UI/UX Design" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8cbbed] text-slate-700" required />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Estimated Time</label>
+            <div className="flex gap-4 items-center">
+              <div className="flex items-center gap-2 flex-1">
+                <input type="number" placeholder="Min" min="1" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8cbbed] text-slate-700" required />
+                <span className="text-slate-500 font-bold">-</span>
+                <input type="number" placeholder="Max" min="1" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8cbbed] text-slate-700" required />
+              </div>
+              <div className="w-1/3">
+                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8cbbed] text-slate-700" defaultValue="Day" required>
+                  <option value="Day">Day(s)</option>
+                  <option value="Week">Week(s)</option>
+                  <option value="Month">Month(s)</option>
+                  <option value="Year">Year(s)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="pt-6 border-t border-slate-100 flex justify-end gap-4">

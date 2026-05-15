@@ -40,12 +40,32 @@ export const MyJobsPage = () => {
             <div className="flex-1">
               <h3 className="text-xl font-bold text-slate-800 hover:text-[#8cbbed] transition-colors mb-2">{job.title}</h3>
               <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500">
-                <span className="flex items-center gap-1 text-slate-700"><IconDollar /> {job.budget}</span>
+                {activeTab === "Applied Jobs" ? (
+                  <span className="flex items-center gap-1 text-slate-700">
+                    <IconDollar /> {job.budget}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-slate-700">
+                    {job.budget} <span className="text-slate-500 font-normal">({job.type === "Hourly" ? "Hourly Rate" : job.type})</span>
+                  </span>
+                )}
                 <span>•</span>
-                <span>{activeTab === "Applied Jobs" ? `Klien: ${job.client.name}` : `Dikerjakan oleh: Budi Santoso`}</span>
+                <span>{activeTab === "Applied Jobs" ? `Klien: ${job.client.name}` : `Diposting oleh: Anda`}</span>
+                <span>•</span>
+                <span className="text-slate-600">Estimasi Waktu: {job.duration}</span>
                 <span>•</span>
                 <span className="text-[#8cbbed] font-bold">Status: Active</span>
               </div>
+              {activeTab === "Posted Jobs" && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="text-xs text-slate-500 font-bold mt-1">Skill Requirement:</span>
+                  {job.skills.map(skill => (
+                    <span key={skill} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
