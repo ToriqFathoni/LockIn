@@ -193,12 +193,14 @@ export const LandingPage = () => {
 
 export const HomePage = () => {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("Recommended Jobs");
   const [apiJobs, setApiJobs] = useState<Job[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [fetchError, setFetchError] = useState("");
+  const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
+  const [applyError, setApplyError] = useState("");
 
   useEffect(() => {
     async function loadJobs() {
@@ -221,6 +223,49 @@ export const HomePage = () => {
     loadJobs();
   }, []);
 
+  async function handleApplyJob(jobId: number, jobOwnerId: number, jobTitle: string) {
+    if (!token || !user) {
+      setApplyError("Silakan login terlebih dahulu");
+      return;
+    }
+
+    if (user.id === jobOwnerId) {
+      setApplyError("Anda tidak dapat apply job milik Anda sendiri");
+      return;
+    }
+
+    setApplyingJobId(jobId);
+    setApplyError("");
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          other_user_id: jobOwnerId,
+          job_id: jobId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setApplyError(data.error || "Gagal apply job");
+        return;
+      }
+
+      // Redirect to messages page
+      router.push(`/messages`);
+    } catch (err) {
+      setApplyError("Tidak dapat terhubung ke server");
+    } finally {
+      setApplyingJobId(null);
+    }
+  }
+
   const jobsSource = apiJobs.length > 0 ? apiJobs : (mockJobs as unknown as Job[]);
   const filteredJobs = jobsSource.filter((job) => job.title.toLowerCase().includes(searchTerm.toLowerCase()) || (job.skills && job.skills.some((skill) => skill.toLowerCase().includes(searchTerm.toLowerCase()))));
   return (
@@ -235,6 +280,9 @@ export const HomePage = () => {
       {fetchError && (
         <div className="mb-4 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-sm">{fetchError}</div>
       )}
+      {applyError && (
+        <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm">{applyError}</div>
+      )}
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="hidden lg:block w-64 shrink-0">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-24">
@@ -247,7 +295,23 @@ export const HomePage = () => {
           {isFetching ? (
             <div className="space-y-4">{[1, 2, 3].map((i) => (<div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 animate-pulse"><div className="h-6 bg-slate-100 rounded-full w-2/3 mb-4" /><div className="h-4 bg-slate-100 rounded-full w-full mb-2" /><div className="h-4 bg-slate-100 rounded-full w-5/6" /></div>))}</div>
           ) : (
-            <div className="space-y-4">{filteredJobs.length > 0 ? filteredJobs.map((job) => (<div key={job.id} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer group" onClick={() => router.push(`/jobs/${job.id}`)}><div className="flex justify-between items-start mb-2"><h3 className="text-xl font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors">{job.title}</h3></div><div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500 mb-4"><span className="flex items-center gap-1"><IconClock /> {job.type ?? "Project"}</span><span>•</span><span className="flex items-center gap-1 text-slate-700"><IconDollar /> {job.budget ?? (job as unknown as Record<string, string>).budget_min ?? "Negotiable"}</span><span>•</span><span>Est. Time: {job.duration ?? "TBD"}</span></div><p className="text-slate-600 mb-6 line-clamp-2 leading-relaxed text-sm">{job.description}</p><div className="flex flex-wrap gap-2 mb-6">{(job.skills ?? []).map((skill) => (<Badge key={skill} text={skill} type="default" />))}</div><div className="flex items-center justify-between pt-4 border-t border-slate-100"><div className="flex items-center gap-3 text-sm">{job.client?.verified ? (<span className="flex items-center gap-1 text-green-600 font-medium"><IconCheckCircle /> Payment verified</span>) : (<span className="text-slate-500 font-medium">{(job as unknown as Record<string, string>).client_name ?? "Client"}</span>)}<span className="text-slate-300">|</span><span className="flex items-center gap-1 text-slate-500"><IconMapPin /> {job.client?.location ?? (job as unknown as Record<string, string>).location ?? "Remote"}</span></div><span className="text-xs text-slate-400">{job.postedAt ?? "Baru saja"}</span></div></div>)) : (<div className="text-center py-20 bg-white rounded-3xl border border-slate-200"><h3 className="text-lg font-bold text-slate-800 mb-2">No jobs found</h3></div>)}</div>
+            <div className="space-y-4">{filteredJobs.length > 0 ? filteredJobs.map((job) => (<div key={job.id} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 group"><div className="flex justify-between items-start mb-2"><h3 className="text-xl font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>{job.title}</h3></div><div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500 mb-4"><span className="flex items-center gap-1"><IconClock /> {job.type ?? "Project"}</span><span>•</span><span className="flex items-center gap-1 text-slate-700"><IconDollar /> {job.budget ?? (job as unknown as Record<string, string>).budget_min ?? "Negotiable"}</span><span>•</span><span>Est. Time: {job.duration ?? "TBD"}</span></div><p className="text-slate-600 mb-6 line-clamp-2 leading-relaxed text-sm cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>{job.description}</p><div className="flex flex-wrap gap-2 mb-6">{(job.skills ?? []).map((skill) => (<Badge key={skill} text={skill} type="default" />))}</div><div className="flex items-center justify-between pt-4 border-t border-slate-100"><div className="flex items-center gap-3 text-sm flex-1">{job.client?.verified ? (<span className="flex items-center gap-1 text-green-600 font-medium"><IconCheckCircle /> Payment verified</span>) : (<span className="text-slate-500 font-medium">{(job as unknown as Record<string, string>).client_name ?? "Client"}</span>)}<span className="text-slate-300">|</span><span className="flex items-center gap-1 text-slate-500"><IconMapPin /> {job.client?.location ?? (job as unknown as Record<string, string>).location ?? "Remote"}</span></div><div className="flex gap-2">
+  <button 
+    onClick={() => {
+      const client_id = (job as any).client_id || job.client?.id;
+      if (!client_id) {
+        setApplyError("Informasi client tidak ditemukan");
+        return;
+      }
+      handleApplyJob(job.id, client_id, job.title);
+    }} 
+    disabled={applyingJobId === job.id} 
+    className="px-4 py-2 bg-[#8cbbed] text-white rounded-xl text-sm font-semibold hover:bg-[#7aabdb] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {applyingJobId === job.id ? "Applying..." : "Apply"}
+  </button>
+  <span className="text-xs text-slate-400">{job.postedAt ?? "Baru saja"}</span>
+</div></div></div>)) : (<div className="text-center py-20 bg-white rounded-3xl border border-slate-200"><h3 className="text-lg font-bold text-slate-800 mb-2">No jobs found</h3></div>)}</div>
           )}
         </div>
       </div>

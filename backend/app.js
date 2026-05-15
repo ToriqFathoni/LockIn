@@ -2,7 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, 'env') });
 const express = require('express');
 const cors = require('cors');
-const { runMigrations } = require('./database/migrate');
+// const { runMigrations } = require('./database/migrate');
 const app = express();
 
 const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001'];
@@ -30,9 +30,12 @@ app.use('/reviews', require('./routes/reviewRoutes'));
 app.use('/messages', require('./routes/chatRoutes'));
 
 const PORT = process.env.PORT || 5000;
-runMigrations().catch((err) => {
-  console.error('Migration bootstrap failed:', err.message);
-});
+
+// runMigrations dikomentari agar tidak berjalan setiap startup karena tabel sudah ada
+// const { runMigrations } = require('./database/migrate');
+// runMigrations().catch((err) => {
+//   console.error('Migration bootstrap failed:', err.message);
+// });
 
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.too.large') {
