@@ -99,8 +99,12 @@ export const mockUser: UserProfile = {
   skills: ["JavaScript", "React", "TypeScript", "Tailwind CSS", "Next.js"],
   hourlyRate: "Rp 350.000/jam",
   location: "Jakarta, Indonesia",
-  jobSuccess: "98%",
+  rating: 4.8,
+  reviewCount: 126,
   totalEarned: "Rp 150.000.000+",
+  experience: "5+ years in frontend engineering across agency and product teams.",
+  achievements: ["Built 20+ client projects", "Maintained 99% delivery rate"],
+  cvFileName: "Budi-Santoso-CV.pdf",
 };
 
 export const mockMessages: MessageItem[] = [

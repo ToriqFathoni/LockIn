@@ -38,8 +38,12 @@ export interface UserProfile {
   skills: string[];
   hourlyRate: string;
   location: string;
-  jobSuccess: string;
+  rating: number;
+  reviewCount: number;
   totalEarned: string;
+  experience?: string;
+  achievements?: string[];
+  cvFileName?: string | null;
 }
 
 export interface MessageItem {

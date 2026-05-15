@@ -11,12 +11,12 @@ export const PostJobPage = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user && user.role !== "client") {
+    if (user === null) {
       router.push("/home");
     }
   }, [user, router]);
 
-  if (!user || user.role !== "client") return null;
+  if (!user) return null;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

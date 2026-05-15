@@ -35,10 +35,7 @@ export const Navbar = () => {
   const { user, logout } = useAuth();
   const isLanding = pathname === "/";
 
-  const filteredNavItems = navItems.filter((tab) => {
-    if (tab.href === "/post-job" && user?.role !== "client") return false;
-    return true;
-  });
+  const filteredNavItems = navItems;
 
   return (
     <nav className={`fixed w-full top-0 z-50 transition-all duration-300 ${isLanding ? "bg-white py-4" : "bg-white/80 backdrop-blur-md shadow-sm py-2 border-b border-slate-100"}`}>

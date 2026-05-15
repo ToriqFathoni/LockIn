@@ -8,6 +8,8 @@ interface AuthUser {
   name: string;
   email: string;
   role: string;
+  phone?: string | null;
+  location?: string | null;
 }
 
 interface AuthContextValue {
