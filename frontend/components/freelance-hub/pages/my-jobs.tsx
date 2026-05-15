@@ -1,16 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { colors, mockJobs } from "../data";
 import { IconDollar } from "../icons";
 import { Button } from "../ui";
+import { useAuth } from "@/context/AuthContext";
 
 export const MyJobsPage = () => {
   const [activeTab, setActiveTab] = useState("Applied Jobs");
   const router = useRouter();
+  const { user, token } = useAuth();
+  const [postedJobs, setPostedJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const appliedJobs = mockJobs.slice(0, 2);
-  const postedJobs = mockJobs.slice(2, 4);
+
+  useEffect(() => {
+    if (activeTab === "Posted Jobs" && token) {
+      setLoading(true);
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.projects) {
+            const formatted = data.projects.map((p: any) => ({
+              id: p.id,
+              title: p.title,
+              budget: `Rp ${p.budget_min}`,
+              client: { name: user?.name || "Anda" },
+              skills: p.skills || [],
+              duration: p.estimated_time || "-",
+              type: p.job_type,
+              status: p.status,
+            }));
+            setPostedJobs(formatted);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [activeTab, token, user]);
+
   const displayJobs = activeTab === "Applied Jobs" ? appliedJobs : postedJobs;
 
   return (
@@ -31,11 +65,16 @@ export const MyJobsPage = () => {
       <div className="space-y-4">
         <h2 className="text-lg font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">{activeTab === "Applied Jobs" ? "Pekerjaan Aktif Anda" : "Proyek yang Anda Kelola"}</h2>
 
-        {displayJobs.map((job) => (
+        {loading ? (
+          <p className="text-center text-slate-500 py-8">Memuat pekerjaan...</p>
+        ) : displayJobs.length === 0 ? (
+          <p className="text-center text-slate-500 py-8">Belum ada pekerjaan di tab ini.</p>
+        ) : (
+          displayJobs.map((job) => (
           <div
             key={job.id}
             className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
-            onClick={() => router.push(`/manage-job?job=${job.id}&role=${activeTab === "Applied Jobs" ? "freelancer" : "client"}`)}
+            onClick={() => router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`)}
           >
             <div className="flex-1">
               <h3 className="text-xl font-bold text-slate-800 hover:text-[#8cbbed] transition-colors mb-2">{job.title}</h3>
@@ -74,14 +113,14 @@ export const MyJobsPage = () => {
                 size="sm"
                 onClick={(event) => {
                   event.stopPropagation();
-                  router.push(`/manage-job?job=${job.id}&role=${activeTab === "Applied Jobs" ? "freelancer" : "client"}`);
+                  router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
                 }}
               >
-                {activeTab === "Applied Jobs" ? "Lihat Pembayaran" : "Kelola Kontrak"}
+                {activeTab === "Applied Jobs" ? "Lihat Pembayaran" : "Lihat Detail"}
               </Button>
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

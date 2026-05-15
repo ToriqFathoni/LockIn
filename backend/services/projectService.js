@@ -1,20 +1,20 @@
 const db = require('../database');
 
 async function createProjectForClient(clientId, payload) {
-  const { title, description = null, budget_min = null, budget_max = null, status = 'open', expires_at = null } = payload;
+  const { title, description = null, budget_min = null, budget_max = null, status = 'open', expires_at = null, skills = [], estimated_time = null, job_type = null } = payload;
 
   const result = await db.query(
-    `INSERT INTO projects (client_id, title, description, budget_min, budget_max, status, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO projects (client_id, title, description, budget_min, budget_max, status, expires_at, skills, estimated_time, job_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
-    [clientId, title, description, budget_min, budget_max, status, expires_at]
+    [clientId, title, description, budget_min, budget_max, status, expires_at, skills, estimated_time, job_type]
   );
 
   return result.rows[0];
 }
 
 async function updateProjectForClient(projectId, clientId, payload) {
-  const allowed = ['title', 'description', 'budget_min', 'budget_max', 'status', 'expires_at'];
+  const allowed = ['title', 'description', 'budget_min', 'budget_max', 'status', 'expires_at', 'skills', 'estimated_time', 'job_type'];
   const fields = [];
   const values = [];
   let idx = 1;
