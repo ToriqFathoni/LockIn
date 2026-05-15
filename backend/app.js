@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { runMigrations } = require('./database/migrate');
 const app = express();
 
 const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001'];
@@ -25,7 +26,11 @@ app.use('/bids', require('./routes/bidRoutes'));
 app.use('/contracts', require('./routes/contractRoutes'));
 app.use('/reviews', require('./routes/reviewRoutes'));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+runMigrations().catch((err) => {
+  console.error('Migration bootstrap failed:', err.message);
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

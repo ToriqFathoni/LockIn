@@ -7,6 +7,12 @@ const DEFAULT_PROFILE_FIELDS = {
   avatar_url: null,
   hourly_rate: null,
   country: null,
+  skills: [],
+  achievements: [],
+  experience: null,
+  cv_file_name: null,
+  cv_file_type: null,
+  cv_file_data: null,
 };
 
 async function createDefaultProfile(freelancerId) {
@@ -18,8 +24,14 @@ async function createDefaultProfile(freelancerId) {
       portfolio_url,
       avatar_url,
       hourly_rate,
-      country
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      country,
+      skills,
+      achievements,
+      experience,
+      cv_file_name,
+      cv_file_type,
+      cv_file_data
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     ON CONFLICT (freelancer_id) DO NOTHING
     RETURNING *`,
     [
@@ -30,6 +42,12 @@ async function createDefaultProfile(freelancerId) {
       DEFAULT_PROFILE_FIELDS.avatar_url,
       DEFAULT_PROFILE_FIELDS.hourly_rate,
       DEFAULT_PROFILE_FIELDS.country,
+      DEFAULT_PROFILE_FIELDS.skills,
+      DEFAULT_PROFILE_FIELDS.achievements,
+      DEFAULT_PROFILE_FIELDS.experience,
+      DEFAULT_PROFILE_FIELDS.cv_file_name,
+      DEFAULT_PROFILE_FIELDS.cv_file_type,
+      DEFAULT_PROFILE_FIELDS.cv_file_data,
     ]
   );
 
@@ -44,6 +62,24 @@ async function getByFreelancerId(freelancerId) {
   return result.rows[0] || null;
 }
 
+async function getProfileDetails(freelancerId) {
+  const result = await db.query(
+    `SELECT
+      fp.*,
+      u.name AS user_name,
+      u.email AS user_email,
+      u.phone AS user_phone,
+      u.location AS user_location,
+      u.role AS user_role
+    FROM freelancer_profiles fp
+    JOIN users u ON u.id = fp.freelancer_id
+    WHERE fp.freelancer_id = $1`,
+    [freelancerId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function updateProfile(freelancerId, payload) {
   const current = await getByFreelancerId(freelancerId);
   if (!current) {
@@ -54,7 +90,20 @@ async function updateProfile(freelancerId, payload) {
   const values = [];
   let idx = 1;
 
-  const allowed = ['headline', 'bio', 'portfolio_url', 'avatar_url', 'hourly_rate', 'country'];
+  const allowed = [
+    'headline',
+    'bio',
+    'portfolio_url',
+    'avatar_url',
+    'hourly_rate',
+    'country',
+    'skills',
+    'achievements',
+    'experience',
+    'cv_file_name',
+    'cv_file_type',
+    'cv_file_data',
+  ];
 
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(payload, key)) {
@@ -95,6 +144,7 @@ async function getAllProfiles() {
 module.exports = {
   createDefaultProfile,
   getByFreelancerId,
+  getProfileDetails,
   updateProfile,
   getProfileById,
   getAllProfiles,

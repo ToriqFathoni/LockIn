@@ -7,7 +7,6 @@ const { requireRole } = require('../middlewares/roleMiddleware');
 router.get('/public', controller.getPublicProjects);
 
 router.use(authenticateToken);
-router.use(requireRole('client'));
 
 router.get('/', controller.getAllProjects);
 router.get('/:projectId', controller.getProjectById);

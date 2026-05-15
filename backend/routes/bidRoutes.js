@@ -5,7 +5,6 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
 router.use(authenticateToken);
-router.use(requireRole('freelancer'));
 
 router.get('/', controller.getAllBids);
 router.get('/:bidId', controller.getBidById);

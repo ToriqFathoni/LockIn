@@ -5,7 +5,6 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
 router.use(authenticateToken);
-router.use(requireRole('client'));
 
 router.get('/', controller.getAllReviews);
 router.get('/:reviewId', controller.getReviewById);

@@ -3,7 +3,8 @@ const freelancerProfileService = require('../services/freelancerProfileService')
 async function createOrGetMyProfile(req, res) {
   try {
     const freelancerId = req.user.id;
-    const profile = await freelancerProfileService.createDefaultProfile(freelancerId);
+    await freelancerProfileService.createDefaultProfile(freelancerId);
+    const profile = await freelancerProfileService.getProfileDetails(freelancerId);
     return res.status(201).json({ profile });
   } catch (err) {
     console.error(err);
@@ -14,7 +15,8 @@ async function createOrGetMyProfile(req, res) {
 async function updateMyProfile(req, res) {
   try {
     const freelancerId = req.user.id;
-    const profile = await freelancerProfileService.updateProfile(freelancerId, req.body);
+    await freelancerProfileService.updateProfile(freelancerId, req.body);
+    const profile = await freelancerProfileService.getProfileDetails(freelancerId);
 
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
