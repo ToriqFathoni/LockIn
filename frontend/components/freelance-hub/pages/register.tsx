@@ -27,6 +27,8 @@ const readFileAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+const MAX_CV_SIZE_BYTES = 3 * 1024 * 1024;
+
 export const RegisterPage = () => {
   const router = useRouter();
   const { user, login, isLoading: isAuthLoading } = useAuth();
@@ -89,6 +91,14 @@ export const RegisterPage = () => {
 
     if (file.type !== "application/pdf") {
       setError("CV harus berformat PDF.");
+      event.target.value = "";
+      setCvFile(null);
+      setCvPreview("");
+      return;
+    }
+
+    if (file.size > MAX_CV_SIZE_BYTES) {
+      setError("Ukuran CV terlalu besar. Maksimal 3 MB.");
       event.target.value = "";
       setCvFile(null);
       setCvPreview("");
@@ -275,7 +285,7 @@ export const RegisterPage = () => {
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-5">
                   <label className="block text-sm font-bold text-slate-700 mb-2">Upload CV PDF</label>
                   <input id="register-cv" type="file" accept="application/pdf" onChange={handleCvChange} className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-white file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-100" />
-                  <p className="mt-3 text-xs text-slate-500">Format wajib PDF. Upload di langkah ini bersifat opsional.</p>
+                  <p className="mt-3 text-xs text-slate-500">Format wajib PDF. Upload di langkah ini bersifat opsional. Maksimal 3 MB.</p>
                   {cvPreview ? <p className="mt-3 text-sm font-semibold text-slate-700">File terpilih: {cvPreview}</p> : null}
                 </div>
               </div>

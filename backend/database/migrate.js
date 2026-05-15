@@ -25,6 +25,47 @@ async function runMigrations() {
     `);
     
     console.log('Migration: users, freelancer_profiles, and projects columns ensured.');
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        user_1_id INTEGER NOT NULL REFERENCES users(id),
+        user_2_id INTEGER NOT NULL REFERENCES users(id),
+        job_id INTEGER REFERENCES projects(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_1_id, user_2_id),
+        CHECK (user_1_id != user_2_id)
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        sender_id INTEGER NOT NULL REFERENCES users(id),
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_1_id ON conversations(user_1_id)
+    `);
+
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_2_id ON conversations(user_2_id)
+    `);
+
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)
+    `);
+
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id)
+    `);
+
+    console.log('Migration: users, freelancer_profiles, conversations, and messages tables ensured.');
   } catch (err) {
     console.error('Migration warning:', err.message);
   }
