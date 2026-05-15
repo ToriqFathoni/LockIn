@@ -17,6 +17,14 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS cv_file_type TEXT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS cv_file_data TEXT DEFAULT NULL
     `);
+    await db.query(`
+      ALTER TABLE projects
+      ADD COLUMN IF NOT EXISTS skills TEXT[] DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS estimated_time TEXT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT NULL
+    `);
+    
+    console.log('Migration: users, freelancer_profiles, and projects columns ensured.');
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS conversations (
