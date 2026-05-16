@@ -13,11 +13,17 @@ export const MyJobsPage = () => {
   const { user, token } = useAuth();
   const [postedJobs, setPostedJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [hiredJobsState, setHiredJobsState] = useState<Record<string, boolean>>({});
 
   const appliedJobs = mockJobs.slice(0, 2);
 
   useEffect(() => {
-    if (activeTab === "Posted Jobs" && token) {
+    setHiredJobsState(JSON.parse(localStorage.getItem("hiredDummyJobs") || "{}"));
+  }, [activeTab]);
+
+  const fetchJobs = () => {
+    if (token) {
       setLoading(true);
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`, {
         headers: {
@@ -43,7 +49,44 @@ export const MyJobsPage = () => {
         .catch(console.error)
         .finally(() => setLoading(false));
     }
+  };
+
+  useEffect(() => {
+    if (activeTab === "Posted Jobs") {
+      fetchJobs();
+    }
   }, [activeTab, token, user]);
+
+  const handleDeleteJob = async (e: React.MouseEvent, jobId: number) => {
+    e.stopPropagation();
+    
+    if (window.confirm("Apakah Anda yakin ingin membatalkan/menghapus pekerjaan ini? Tindakan ini tidak dapat dibatalkan.")) {
+      setIsDeleting(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${jobId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "canceled" }),
+        });
+
+        if (response.ok) {
+          alert("Pekerjaan berhasil dihapus.");
+          fetchJobs();
+        } else {
+          const errorData = await response.json();
+          alert(`Gagal menghapus pekerjaan: ${errorData.error || "Kesalahan server"}`);
+        }
+      } catch (error) {
+        console.error("Gagal saat membatalkan pekerjaan:", error);
+        alert("Terjadi kesalahan sistem saat menghubungi server.");
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
 
   const displayJobs = activeTab === "Applied Jobs" ? appliedJobs : postedJobs;
 
@@ -93,7 +136,9 @@ export const MyJobsPage = () => {
                 <span>•</span>
                 <span className="text-slate-600">Estimasi Waktu: {job.duration}</span>
                 <span>•</span>
-                <span className="text-[#8cbbed] font-bold">Status: Active</span>
+                <span className={`${activeTab === "Posted Jobs" && hiredJobsState[job.id] ? "text-yellow-600" : "text-[#8cbbed]"} font-bold`}>
+                  Status: {activeTab === "Posted Jobs" && hiredJobsState[job.id] ? "In Progress" : job.status === "open" ? "Active" : job.status}
+                </span>
               </div>
               {activeTab === "Posted Jobs" && (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -107,17 +152,32 @@ export const MyJobsPage = () => {
               )}
             </div>
 
-            <div>
+            <div className="flex flex-col gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={(event) => {
                   event.stopPropagation();
-                  router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
+                  if (activeTab === "Posted Jobs" && hiredJobsState[job.id]) {
+                    router.push(`/manage-job?job=${job.id}&role=client`);
+                  } else {
+                    router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
+                  }
                 }}
               >
-                {activeTab === "Applied Jobs" ? "Lihat Pembayaran" : "Lihat Detail"}
+                {activeTab === "Applied Jobs" ? "Lihat Pembayaran" : hiredJobsState[job.id] ? "Lihat Pembayaran" : "Lihat Detail"}
               </Button>
+              {activeTab === "Posted Jobs" && job.status === "open" && !hiredJobsState[job.id] && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                  disabled={isDeleting}
+                  onClick={(e) => handleDeleteJob(e, job.id)}
+                >
+                  {isDeleting ? "Menghapus..." : "Hapus Pekerjaan"}
+                </Button>
+              )}
             </div>
           </div>
         )))}

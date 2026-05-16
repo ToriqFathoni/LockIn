@@ -42,6 +42,20 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT NULL
     `);
     
+    // Ensure the 'canceled' status is available in the ENUM if it exists
+    await db.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'project_status') THEN
+          ALTER TYPE project_status ADD VALUE IF NOT EXISTS 'canceled';
+        END IF;
+      END
+      $$;
+    `).catch(e => {
+      // Ignore if ENUM value already exists, happens on repeated runs
+      if (e.code !== '42710') throw e; 
+    });
+
     console.log('Migration: users, freelancer_profiles, and projects columns ensured.');
 
     // 3. Drop existing chat tables to recreate with correct schema

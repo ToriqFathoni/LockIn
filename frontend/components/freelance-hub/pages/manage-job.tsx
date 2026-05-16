@@ -55,19 +55,15 @@ export const ManageJobPage = () => {
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-              <h3 className="font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2"><IconReceipt /> Milestone Saat Ini</h3>
+              <h3 className="font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2"><IconReceipt /> Tagihan Proyek</h3>
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-slate-500 font-semibold mb-1">Nama Milestone</p>
-                  <p className="text-sm font-bold text-slate-800">Tahap 1: Desain & Arsitektur</p>
+                  <p className="text-xs text-slate-500 font-semibold mb-1">Status Proyek</p>
+                  <p className="text-sm font-bold text-slate-800">Pembayaran Penuh</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold mb-1">Nominal Pembayaran</p>
-                  <p className="text-lg font-black text-[#8cbbed]">Rp 5.000.000</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-semibold mb-1">Metode Disepakati</p>
-                  <p className="text-sm font-bold text-slate-700 bg-slate-50 inline-block px-3 py-1 rounded-lg border border-slate-100">Transfer Bank (BCA)</p>
+                  <p className="text-lg font-black text-[#8cbbed]">Rp 20.000.000</p>
                 </div>
               </div>
             </div>
@@ -85,7 +81,7 @@ export const ManageJobPage = () => {
 
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 h-full flex flex-col">
-              <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><IconShieldCheck /> Status Pembayaran Milestone</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><IconShieldCheck /> Status Pembayaran</h3>
               <div className="flex-1 flex flex-col justify-center">
                 {role === "client" ? (
                   <div className="w-full max-w-lg mx-auto">
@@ -93,7 +89,7 @@ export const ManageJobPage = () => {
                       <div className="text-center animate-fade-in">
                         <div className="w-16 h-16 mx-auto bg-blue-50 rounded-2xl flex items-center justify-center text-[#8cbbed] mb-4"><IconUpload /></div>
                         <h4 className="font-bold text-slate-800 text-xl mb-2">Unggah Bukti Pembayaran</h4>
-                        <p className="text-slate-600 mb-6 text-sm">Silakan transfer sebesar <b>Rp 5.000.000</b> ke rekening yang disepakati, lalu unggah struk di sini agar freelancer dapat mulai/melanjutkan pekerjaan.</p>
+                        <p className="text-slate-600 mb-6 text-sm">Silakan transfer sebesar <b>Rp 20.000.000</b> ke rekening sistem, lalu unggah struk di sini agar freelancer dapat mulai bekerja.</p>
                         <div className="border-2 border-dashed border-[#8cbbed] bg-blue-50/30 rounded-2xl p-8 hover:bg-blue-50 transition-colors cursor-pointer mb-6" onClick={() => setPaymentStatus("uploaded")}>
                           <span className="block font-bold text-[#8cbbed] mb-1">Klik di sini untuk mengunggah file</span>
                           <span className="text-xs text-slate-400">(Simulasi klik: JPG, PNG, PDF)</span>
@@ -107,7 +103,7 @@ export const ManageJobPage = () => {
                         <h4 className="font-bold text-slate-800 text-xl mb-2">Bukti Terkirim, Menunggu Konfirmasi</h4>
                         <p className="text-slate-600 mb-4 text-sm">Bukti transfer Anda sedang ditinjau oleh Freelancer. Anda akan diberitahu jika dana sudah dikonfirmasi masuk.</p>
                         <div className="inline-flex items-center gap-2 text-sm text-slate-700 font-semibold bg-white px-4 py-2 rounded-xl border border-slate-200">
-                          <span className="text-[#8cbbed]"><IconFileText /></span> struk_transfer_tahap1.jpg
+                          <span className="text-[#8cbbed]"><IconFileText /></span> struk_transfer_proyek.jpg
                         </div>
                       </div>
                     ) : null}
@@ -116,7 +112,7 @@ export const ManageJobPage = () => {
                       <div className="text-center animate-fade-in">
                         <div className="w-16 h-16 mx-auto bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-4"><IconCheckCircle /></div>
                         <h4 className="font-bold text-slate-800 text-xl mb-2">Pembayaran Diterima!</h4>
-                        <p className="text-slate-600 mb-8 text-sm">Freelancer telah mengonfirmasi penerimaan dana untuk milestone ini. Jika seluruh pekerjaan telah selesai, Anda dapat menutup proyek.</p>
+                        <p className="text-slate-600 mb-8 text-sm">Freelancer telah mengonfirmasi penerimaan dana untuk proyek ini. Jika seluruh pekerjaan telah selesai, Anda dapat menutup proyek.</p>
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                           <p className="text-sm font-semibold text-slate-800 mb-4">Apakah seluruh target pekerjaan telah terpenuhi?</p>
                           <Button variant="primary" className="w-full bg-green-500 shadow-green-500/30" onClick={() => setProjectStatus("completed")}>Selesaikan Pekerjaan (Tutup Proyek)</Button>
@@ -130,7 +126,7 @@ export const ManageJobPage = () => {
                       <div className="text-center animate-fade-in bg-slate-50 p-8 rounded-3xl border border-slate-100">
                         <div className="w-16 h-16 mx-auto bg-white rounded-2xl flex items-center justify-center text-slate-400 shadow-sm mb-4"><IconClock /></div>
                         <h4 className="font-bold text-slate-800 text-xl mb-2">Menunggu Klien</h4>
-                        <p className="text-slate-600 text-sm">Klien belum mengunggah bukti pembayaran untuk milestone <b>Rp 5.000.000</b>. Anda tidak perlu melakukan apa-apa saat ini.</p>
+                        <p className="text-slate-600 text-sm">Klien belum mengunggah bukti pembayaran untuk <b>Rp 20.000.000</b>. Anda tidak perlu melakukan apa-apa saat ini.</p>
                         <button onClick={() => setPaymentStatus("uploaded")} className="mt-6 text-xs text-slate-400 underline opacity-50 hover:opacity-100">Simulasikan klien mengirim bukti</button>
                       </div>
                     ) : null}
@@ -152,8 +148,8 @@ export const ManageJobPage = () => {
                     {paymentStatus === "confirmed" ? (
                       <div className="text-center animate-fade-in bg-green-50/50 p-8 rounded-3xl border border-green-100">
                         <div className="w-16 h-16 mx-auto bg-white rounded-2xl flex items-center justify-center text-green-500 shadow-sm mb-4"><IconCheckCircle /></div>
-                        <h4 className="font-bold text-slate-800 text-xl mb-2">Milestone Selesai!</h4>
-                        <p className="text-slate-600 text-sm">Pembayaran telah berhasil Anda konfirmasi. Lanjutkan pekerjaan Anda.</p>
+                        <h4 className="font-bold text-slate-800 text-xl mb-2">Pembayaran Selesai!</h4>
+                        <p className="text-slate-600 text-sm">Pembayaran telah berhasil Anda konfirmasi. Silakan kerjakan proyek.</p>
                         <button onClick={() => setProjectStatus("completed")} className="mt-6 text-xs text-slate-400 underline opacity-50 hover:opacity-100">Simulasikan klien menyelesaikan proyek</button>
                       </div>
                     ) : null}
