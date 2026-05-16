@@ -32,9 +32,9 @@ async function createProject(req, res) {
       return res.status(400).json({ error: 'budget_min cannot be greater than budget_max' });
     }
 
-    const allowedStatus = ['open', 'progress', 'closed'];
+    const allowedStatus = ['open', 'progress', 'closed', 'canceled'];
     if (status && !allowedStatus.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Use: open, progress, closed' });
+      return res.status(400).json({ error: 'Invalid status. Use: open, progress, closed, canceled' });
     }
 
     const project = await projectService.createProjectForClient(clientId, {
@@ -79,9 +79,9 @@ async function updateProject(req, res) {
       return res.status(400).json({ error: 'budget_min cannot be greater than budget_max' });
     }
 
-    const allowedStatus = ['open', 'progress', 'closed'];
+    const allowedStatus = ['open', 'progress', 'closed', 'canceled'];
     if (status != null && !allowedStatus.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Use: open, progress, closed' });
+      return res.status(400).json({ error: 'Invalid status. Use: open, progress, closed, canceled' });
     }
 
     const payload = {};

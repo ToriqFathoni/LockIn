@@ -55,7 +55,7 @@ async function getProjectById(projectId) {
 }
 
 async function getAllProjects(clientId) {
-  const result = await db.query('SELECT * FROM projects WHERE client_id = $1', [clientId]);
+  const result = await db.query('SELECT * FROM projects WHERE client_id = $1 AND (status != \'canceled\' OR status IS NULL) ORDER BY created_at DESC', [clientId]);
   return result.rows;
 }
 
