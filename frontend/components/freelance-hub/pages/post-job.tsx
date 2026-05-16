@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { Button, CustomModal } from "../ui";
 import { useAuth } from "@/context/AuthContext";
 
+const AVAILABLE_SKILLS = [
+  "Frontend Engineer",
+  "Data Engineer",
+  "Backend Engineer",
+  "DevOps Engineer",
+  "Network Engineer",
+  "Mobile Developer",
+  "Database Administrator",
+  "Cloud Architect",
+  "Machine Learning Engineer",
+  "Systems Programmer"
+];
+
 export const PostJobPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,11 +42,31 @@ export const PostJobPage = () => {
 
   if (!user) return null;
 
+  const toggleSkill = (skill: string) => {
+    const currentSkills = formData.skills ? formData.skills.split(",").map(s => s.trim()).filter(Boolean) : [];
+    if (currentSkills.includes(skill)) {
+      setFormData({
+        ...formData,
+        skills: currentSkills.filter((s) => s !== skill).join(", "),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        skills: [...currentSkills, skill].join(", "),
+      });
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const skillsArray = formData.skills.split(",").map((s) => s.trim()).filter(Boolean);
+    if (skillsArray.length === 0) {
+      alert("Pilih minimal 1 skill requirement.");
+      return;
+    }
+    
     setLoading(true);
 
-    const skillsArray = formData.skills.split(",").map((s) => s.trim()).filter(Boolean);
     const estimatedTime = `${formData.minTime} - ${formData.maxTime} ${formData.timeUnit}(s)`;
 
     try {
@@ -109,8 +142,30 @@ export const PostJobPage = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Skill Requirement</label>
-            <input type="text" value={formData.skills} onChange={(e) => setFormData({ ...formData, skills: e.target.value })} placeholder="Cth: PostgreSQL, Javascript, UI/UX Design" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8cbbed] text-slate-700" required />
+            <label className="block text-sm font-bold text-slate-700 mb-2">Skill Requirement <span className="text-red-400">*</span></label>
+            <div className="flex flex-wrap gap-2">
+              {AVAILABLE_SKILLS.map((skill) => {
+                const selectedList = formData.skills ? formData.skills.split(",").map(s => s.trim()).filter(Boolean) : [];
+                const isSelected = selectedList.includes(skill);
+                return (
+                  <button
+                    key={skill}
+                    type="button"
+                    onClick={() => toggleSkill(skill)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      isSelected
+                        ? "bg-[#8cbbed] border-[#8cbbed] text-white"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {skill}
+                  </button>
+                );
+              })}
+            </div>
+            {(!formData.skills || formData.skills.trim() === "") && (
+              <p className="text-xs text-red-500 mt-2">Pilih minimal 1 skill.</p>
+            )}
           </div>
 
           <div>
