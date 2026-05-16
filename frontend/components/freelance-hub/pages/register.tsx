@@ -13,6 +13,19 @@ const steps = [
   { id: 3, title: "CV", description: "Upload PDF opsional untuk profil" },
 ];
 
+const AVAILABLE_SKILLS = [
+  "Frontend Engineer",
+  "Data Engineer",
+  "Backend Engineer",
+  "DevOps Engineer",
+  "Network Engineer",
+  "Mobile Developer",
+  "Database Administrator",
+  "Cloud Architect",
+  "Machine Learning Engineer",
+  "Systems Programmer"
+];
+
 const splitLines = (value: string) =>
   value
     .split(/[\n,]/)
@@ -58,6 +71,15 @@ export const RegisterPage = () => {
   function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function toggleSkill(skill: string) {
+    const currentSkills = form.skills ? form.skills.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    if (currentSkills.includes(skill)) {
+      setForm((prev) => ({ ...prev, skills: currentSkills.filter((s) => s !== skill).join(", ") }));
+    } else {
+      setForm((prev) => ({ ...prev, skills: [...currentSkills, skill].join(", ") }));
+    }
   }
 
   function validateStepOne() {
@@ -130,6 +152,11 @@ export const RegisterPage = () => {
 
     if (!validateStepOne()) {
       setStep(1);
+      return;
+    }
+
+    if (step < 3) {
+      setStep((current) => current + 1);
       return;
     }
 
@@ -264,8 +291,27 @@ export const RegisterPage = () => {
             {step === 2 ? (
               <div className="space-y-4 animate-fade-in-up">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Skills</label>
-                  <textarea name="skills" value={form.skills} onChange={handleChange} rows={4} placeholder="Contoh: React, Node.js, PostgreSQL" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 text-slate-700 placeholder-slate-400 transition-all resize-none" />
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Pilih Keahlian Utama (Skills)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_SKILLS.map((skill) => {
+                      const selectedList = form.skills ? form.skills.split(",").map(s => s.trim()) : [];
+                      const isSelected = selectedList.includes(skill);
+                      return (
+                        <button
+                          key={skill}
+                          type="button"
+                          onClick={() => toggleSkill(skill)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                            isSelected
+                              ? "bg-blue-100 border-blue-300 text-blue-700"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {skill}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>

@@ -4,20 +4,34 @@ const port = Number(process.env.PORT || 5000);
 
 function freePort(targetPort) {
   try {
-    const output = execSync(`lsof -ti:${targetPort}`, {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .toString()
-      .trim();
-
-    if (!output) {
-      return;
+    let pids = [];
+    if (process.platform === 'win32') {
+      const output = execSync(`netstat -ano | findstr :${targetPort}`, {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString().trim();
+      if (!output) return;
+      
+      const lines = output.split('\n');
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length > 4 && line.includes('LISTENING')) {
+          const pid = Number(parts[parts.length - 1]);
+          if (Number.isInteger(pid) && pid > 0 && pid !== process.pid && !pids.includes(pid)) {
+            pids.push(pid);
+          }
+        }
+      }
+    } else {
+      const output = execSync(`lsof -ti:${targetPort}`, {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString().trim();
+      if (!output) return;
+      
+      pids = output
+        .split(/\s+/)
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0 && value !== process.pid);
     }
-
-    const pids = output
-      .split(/\s+/)
-      .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value > 0 && value !== process.pid);
 
     if (pids.length === 0) {
       return;
@@ -33,15 +47,16 @@ function freePort(targetPort) {
 
     console.log(`Freed port ${targetPort} by stopping PID(s): ${pids.join(', ')}`);
   } catch {
-    // No process is using this port or lsof not available
+    // No process is using this port or command failed
   }
 }
 
 freePort(port);
 
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const child = spawn(npxCommand, ['nodemon', 'app.js'], {
+const nodemonBin = require.resolve('nodemon/bin/nodemon.js');
+const child = spawn(process.execPath, [nodemonBin, 'app.js'], {
   stdio: 'inherit',
+  env: process.env,
 });
 
 child.on('exit', (code) => {

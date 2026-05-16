@@ -67,10 +67,10 @@ export const MessagesPage = () => {
     );
   }, [conversations, searchTerm]);
 
-  async function fetchConversations() {
+  async function fetchConversations(isPolling = false) {
     if (!token) return;
 
-    setIsLoadingConversations(true);
+    if (!isPolling) setIsLoadingConversations(true);
     try {
       const response = await fetch(`${apiBaseUrl}/messages`, {
         headers: {
@@ -95,14 +95,14 @@ export const MessagesPage = () => {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Gagal memuat daftar chat");
     } finally {
-      setIsLoadingConversations(false);
+      if (!isPolling) setIsLoadingConversations(false);
     }
   }
 
-  async function fetchMessages(conversationId: number) {
+  async function fetchMessages(conversationId: number, isPolling = false) {
     if (!token) return;
 
-    setIsLoadingMessages(true);
+    if (!isPolling) setIsLoadingMessages(true);
     try {
       const response = await fetch(`${apiBaseUrl}/messages/${conversationId}/messages`, {
         headers: {
@@ -120,7 +120,7 @@ export const MessagesPage = () => {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Gagal memuat pesan");
     } finally {
-      setIsLoadingMessages(false);
+      if (!isPolling) setIsLoadingMessages(false);
     }
   }
 
@@ -158,16 +158,16 @@ export const MessagesPage = () => {
 
   useEffect(() => {
     if (!token || isLoading) return;
-    fetchConversations();
+    fetchConversations(false);
   }, [token, isLoading]);
 
   useEffect(() => {
     if (!token || !selectedConversationId) return;
 
-    fetchMessages(selectedConversationId);
+    fetchMessages(selectedConversationId, false);
     const pollTimer = window.setInterval(() => {
-      fetchMessages(selectedConversationId);
-      fetchConversations();
+      fetchMessages(selectedConversationId, true);
+      fetchConversations(true);
     }, 4000);
 
     return () => window.clearInterval(pollTimer);

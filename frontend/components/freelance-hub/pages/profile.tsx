@@ -33,9 +33,9 @@ const splitList = (value: string) =>
 
 const joinList = (value: string[] | null | undefined) => (value && value.length > 0 ? value.join(", ") : "");
 
-const formatHourlyRate = (value: string | number | null | undefined) => {
+const formatHourlyRate = (value: string | number | null | undefined, hasProfile: boolean) => {
   if (value === null || value === undefined || value === "") {
-    return mockUser.hourlyRate;
+    return hasProfile ? "Belum diatur" : mockUser.hourlyRate;
   }
 
   if (typeof value === "number") {
@@ -47,7 +47,7 @@ const formatHourlyRate = (value: string | number | null | undefined) => {
 
 export const ProfilePage = () => {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,15 +96,20 @@ export const ProfilePage = () => {
 
   const displayProfile = useMemo(() => {
     const resolved = profile ?? {};
-    const name = resolved.user_name || mockUser.name;
-    const location = resolved.user_location || resolved.country || mockUser.location;
-    const title = resolved.headline || mockUser.title;
-    const bio = resolved.bio || resolved.experience || mockUser.bio;
-    const skills = resolved.skills && resolved.skills.length > 0 ? resolved.skills : mockUser.skills;
-    const achievements = resolved.achievements && resolved.achievements.length > 0 ? resolved.achievements : mockUser.achievements ?? [];
-    const hourlyRate = formatHourlyRate(resolved.hourly_rate);
-    const ratingValue = Number(resolved.avg_rating ?? mockUser.rating);
-    const reviewCount = Number(resolved.total_reviews ?? mockUser.reviewCount);
+    const hasProfile = profile !== null;
+
+    const name = resolved.user_name || user?.name || (hasProfile ? "" : mockUser.name);
+    const location = resolved.user_location || resolved.country || user?.location || (hasProfile ? "" : mockUser.location);
+    const title = resolved.headline || (hasProfile ? "" : mockUser.title);
+    const bio = resolved.bio || resolved.experience || "";
+    
+    // Skills dan Achievements dari register (karena berupa array)
+    const skills = resolved.skills && resolved.skills.length > 0 ? resolved.skills : (hasProfile ? [] : mockUser.skills);
+    const achievements = resolved.achievements && resolved.achievements.length > 0 ? resolved.achievements : (hasProfile ? [] : mockUser.achievements ?? []);
+    
+    const hourlyRate = resolved.hourly_rate ?? (hasProfile ? "" : mockUser.hourlyRate);
+    const ratingValue = Number(resolved.avg_rating ?? (hasProfile ? 0 : mockUser.rating));
+    const reviewCount = Number(resolved.total_reviews ?? (hasProfile ? 0 : mockUser.reviewCount));
 
     return {
       name,
@@ -113,21 +118,22 @@ export const ProfilePage = () => {
       bio,
       skills,
       achievements,
-      hourlyRate,
-      ratingValue: Number.isFinite(ratingValue) ? Math.max(0, Math.min(5, ratingValue)) : mockUser.rating,
-      reviewCount: Number.isFinite(reviewCount) ? reviewCount : mockUser.reviewCount,
-      phone: resolved.user_phone || "",
-      email: resolved.user_email || "",
-      cvFileName: resolved.cv_file_name || mockUser.cvFileName || "Belum ada CV",
-      experience: resolved.experience || mockUser.experience || "",
+      hourlyRate: formatHourlyRate(hourlyRate, hasProfile),
+      rawHourlyRate: hourlyRate,
+      ratingValue: Number.isFinite(ratingValue) ? Math.max(0, Math.min(5, ratingValue)) : 0,
+      reviewCount: Number.isFinite(reviewCount) ? reviewCount : 0,
+      phone: resolved.user_phone || user?.phone || "",
+      email: resolved.user_email || user?.email || "",
+      cvFileName: resolved.cv_file_name || (hasProfile ? "Belum ada CV" : mockUser.cvFileName || "Belum ada CV"),
+      experience: resolved.experience || (hasProfile ? "" : mockUser.experience || ""),
     };
-  }, [profile]);
+  }, [profile, user]);
 
   useEffect(() => {
     setForm({
       title: displayProfile.title,
       location: displayProfile.location,
-      hourlyRate: displayProfile.hourlyRate,
+      hourlyRate: displayProfile.rawHourlyRate,
       bio: displayProfile.bio,
       skills: joinList(displayProfile.skills),
       achievements: joinList(displayProfile.achievements),
@@ -143,20 +149,25 @@ export const ProfilePage = () => {
     setError("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/freelancer-profile/me`, {
+      // Pastikan hourlyRate menjadi angka yang valid atau null agar tidak merusak query NUMERIC di Postgres
+      const parsedHourlyRate = typeof form.hourlyRate === "string" 
+        ? (parseInt(form.hourlyRate.replace(/\D/g, ""), 10) || null)
+        : (form.hourlyRate || null);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/freelancer-profile/me`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          headline: form.title,
-          country: form.location,
-          hourly_rate: form.hourlyRate,
-          bio: form.bio,
+          headline: form.title || null,
+          country: form.location || null,
+          hourly_rate: parsedHourlyRate,
+          bio: form.bio || null,
           skills: splitList(form.skills),
           achievements: splitList(form.achievements),
-          experience: form.experience,
+          experience: form.experience || null,
         }),
       });
 
