@@ -6,9 +6,6 @@ import { Navbar } from "@/components/layout/navbar";
 export const metadata: Metadata = {
   title: "LockIn",
   description: "Modern freelance marketplace prototype built with Next.js and Tailwind CSS.",
-  icons: {
-    icon: "/Logos/favicon.ico",
-  },
 };
 
 export default function RootLayout({
