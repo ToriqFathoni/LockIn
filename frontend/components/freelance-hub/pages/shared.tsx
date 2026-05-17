@@ -108,8 +108,8 @@ export const Navbar = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center h-14">
         <button type="button" className="flex items-center cursor-pointer group shrink-0 text-left" onClick={() => router.push(isLanding ? "/" : "/home")}> 
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mr-3 shadow-inner transform group-hover:rotate-12 transition-transform" style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}>
-            <span className="text-white font-black text-xl">F</span>
+          <div className="w-10 h-10 flex items-center justify-center mr-3 transform group-hover:rotate-12 transition-transform">
+            <img src="/Logos/logo.png" alt="LockIn Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-extrabold text-2xl tracking-tight hidden sm:block" style={{ color: colors.textMain }}>
             Lock<span style={{ color: colors.primary }}>In</span>
@@ -565,7 +565,7 @@ export const HomePage = () => {
   const jobsSource = apiJobs.length > 0 ? apiJobs : (mockJobs as unknown as Job[]);
   const visibleJobs = jobsSource.filter((job) => {
     // Only show jobs that are still open
-    if (job.status && job.status !== "open" && job.status !== "Active") return false;
+    if (job.status && (job.status as string).toLowerCase() !== "open" && (job.status as string).toLowerCase() !== "active") return false;
     
     if (!user) return true;
     const ownerId = (job as any).client_id || job.client?.id;

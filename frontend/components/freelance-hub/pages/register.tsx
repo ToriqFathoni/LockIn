@@ -212,8 +212,8 @@ export const RegisterPage = () => {
       <div className="w-full max-w-3xl relative z-10">
         <div className="text-center mb-8 animate-fade-in-up">
           <button type="button" onClick={() => router.push("/")} className="inline-flex items-center gap-3 mb-6 group">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transform group-hover:rotate-12 transition-transform" style={{ background: `linear-gradient(135deg, ${colors.primary}, #60a5fa)` }}>
-              <span className="text-white font-black text-2xl">F</span>
+            <div className="w-12 h-12 flex items-center justify-center transform group-hover:rotate-12 transition-transform">
+              <img src="/Logos/logo.png" alt="LockIn Logo" className="w-full h-full object-contain" />
             </div>
             <span className="font-extrabold text-3xl tracking-tight" style={{ color: colors.textMain }}>
               Lock<span style={{ color: colors.primary }}>In</span>
