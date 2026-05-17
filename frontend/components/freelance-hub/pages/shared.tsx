@@ -9,7 +9,6 @@ import {
   IconBriefcase,
   IconCheckCircle,
   IconClock,
-  IconDollar,
   IconMapPin,
   IconMessage,
   IconPlus,
@@ -20,6 +19,55 @@ import {
   IconWallet,
 } from "../icons";
 import { Badge, Button, CustomModal, Rating } from "../ui";
+
+function formatRupiahText(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") {
+    return "Negotiable";
+  }
+
+  const text = String(value).trim();
+  if (!text || /negotiable/i.test(text)) {
+    return "Negotiable";
+  }
+
+  const cleaned = text.replace(/^Rp\s*/i, "").trim();
+  if (!cleaned.includes("-")) {
+    return cleaned || "Negotiable";
+  }
+
+  const parts = cleaned.split("-").map((part) => part.replace(/^Rp\s*/i, "").trim());
+  if (parts.length === 2 && parts[0] && parts[0] === parts[1]) {
+    return parts[0];
+  }
+
+  return cleaned || "Negotiable";
+}
+
+function formatBudgetDisplay(min?: string | number | null, max?: string | number | null, jobType?: string | null) {
+  const minValue = min === null || min === undefined || min === "" ? null : Number(min);
+  const maxValue = max === null || max === undefined || max === "" ? null : Number(max);
+
+  if ((minValue === null || Number.isNaN(minValue)) && (maxValue === null || Number.isNaN(maxValue))) {
+    return "Negotiable";
+  }
+
+  const formattedMin = minValue !== null && !Number.isNaN(minValue) ? minValue.toLocaleString("id-ID") : null;
+  const formattedMax = maxValue !== null && !Number.isNaN(maxValue) ? maxValue.toLocaleString("id-ID") : null;
+
+  if (formattedMin && formattedMax) {
+    if (formattedMin === formattedMax || /fixed price/i.test(jobType || "")) {
+      return formattedMin;
+    }
+
+    return `${formattedMin} - ${formattedMax}`;
+  }
+
+  return formattedMin || formattedMax || "Negotiable";
+}
+
+function getAppliedJobStorageKey(userId?: string | number | null) {
+  return userId ? `applied-job-ids:${String(userId)}` : "applied-job-ids";
+}
 
 const navItems = [
   { href: "/home", label: "Find Work", icon: IconBriefcase },
@@ -197,33 +245,228 @@ export const HomePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("Recommended Jobs");
   const [apiJobs, setApiJobs] = useState<Job[]>([]);
+  const [savedJobs, setSavedJobs] = useState<Job[]>([]);
+  const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
+  const [realAppliedJobs, setRealAppliedJobs] = useState<any[]>([]);
+  const [topSkill, setTopSkill] = useState<string>("");
   const [isFetching, setIsFetching] = useState(true);
   const [fetchError, setFetchError] = useState("");
-  const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
+  const [applyingJobId, setApplyingJobId] = useState<string | number | null>(null);
   const [applyError, setApplyError] = useState("");
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const tabs = ["Recommended Jobs", "All Jobs", "Applied Jobs", "Saved Jobs"];
 
   useEffect(() => {
     async function loadJobs() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/projects/public`);
+        const res = await fetch(`${apiBaseUrl}/projects/public`);
         if (!res.ok) throw new Error("Gagal memuat data");
         const data = await res.json();
         if (data.projects && data.projects.length > 0) {
-          setApiJobs(data.projects);
+          const normalizedJobs = data.projects.map((project: any) => ({
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            budget: formatBudgetDisplay(project.budget_min, project.budget_max, project.job_type),
+            client: project.client || {
+              id: project.client_id,
+              name: project.client_name || "Unknown Client",
+              rating: project.client_rating || 0,
+              verified: true,
+              location: project.client_location || "Remote",
+            },
+            skills: Array.isArray(project.skills) ? project.skills : [],
+            postedAt: project.created_at ? new Date(project.created_at).toLocaleDateString() : "Baru saja",
+            type: project.job_type || "Project",
+            duration: project.estimated_time || "TBD",
+            status: project.status,
+          }));
+          setApiJobs(normalizedJobs);
         } else {
           setApiJobs(mockJobs as unknown as Job[]);
         }
-      } catch {
-        setApiJobs(mockJobs as unknown as Job[]);
-        setFetchError("Menggunakan data contoh — tidak dapat terhubung ke server.");
+      } catch (err) {
+        setFetchError("Failed to load jobs");
       } finally {
         setIsFetching(false);
       }
     }
-    loadJobs();
-  }, []);
 
-  async function handleApplyJob(jobId: number, jobOwnerId: number, jobTitle: string) {
+    async function loadRealAppliedJobs() {
+      if (!token) return;
+      try {
+        const res = await fetch(`${apiBaseUrl}/projects/applied`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.projects) {
+          // Normalize shape to match the jobs used in other tabs (budget formatting, client object, skills, duration, etc.)
+          const normalized = data.projects.map((project: any) => ({
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            // formatted budget for display
+            budget: formatBudgetDisplay(project.budget_min, project.budget_max, project.job_type),
+            budget_min: project.budget_min,
+            budget_max: project.budget_max,
+            client: project.client || {
+              id: project.client_id,
+              name: project.client_name || 'Unknown Client',
+              rating: project.client_rating || 0,
+              verified: true,
+              location: project.client_location || 'Remote',
+            },
+            skills: Array.isArray(project.skills) ? project.skills : [],
+            postedAt: project.created_at ? new Date(project.created_at).toLocaleDateString() : 'Baru saja',
+            type: project.job_type || 'Project',
+            duration: project.estimated_time || 'TBD',
+            status: project.status,
+            // pass through bid/contract statuses for Applied Jobs logic
+            bid_status: project.bid_status || null,
+            contract_status: project.contract_status || null,
+            // preserve any other useful fields (conversation id etc.)
+            conversation_id: project.conversation_id || null,
+          }));
+
+          setRealAppliedJobs(normalized);
+        }
+      } catch (err) {
+        console.error("Failed to load applied jobs:", err);
+      }
+    }
+
+    loadJobs();
+    loadRealAppliedJobs();
+  }, [apiBaseUrl, token]);
+
+  useEffect(() => {
+    async function loadAppliedJobs() {
+      if (!token || !user) {
+        setAppliedJobIds([]);
+        return;
+      }
+
+      const storageKey = getAppliedJobStorageKey(user.id);
+
+      try {
+        const cached = window.localStorage.getItem(storageKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            setAppliedJobIds(parsed.map((item) => String(item)));
+          }
+        }
+      } catch {
+        // Ignore localStorage parsing errors and fall back to server data.
+      }
+
+      try {
+        const res = await fetch(`${apiBaseUrl}/messages`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) {
+          setAppliedJobIds([]);
+          return;
+        }
+
+        const data = await res.json();
+        const nextAppliedJobIds = (data.conversations ?? [])
+          .map((conversation: any) => conversation.job_id)
+          .filter(Boolean)
+          .map((jobId: any) => String(jobId));
+
+        setAppliedJobIds((previous) => {
+          const merged = Array.from(new Set([...previous, ...nextAppliedJobIds]));
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify(merged));
+          } catch {
+            // Ignore storage write failures.
+          }
+          return merged;
+        });
+      } catch {
+        setAppliedJobIds((previous) => previous);
+      }
+    }
+
+    loadAppliedJobs();
+  }, [apiBaseUrl, token, user]);
+
+  useEffect(() => {
+    async function loadTopSkills() {
+      if (!token) {
+        setTopSkill("");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${apiBaseUrl}/freelancer-profile/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        const skills = Array.isArray(data?.profile?.skills)
+          ? data.profile.skills.filter((skill: unknown) => typeof skill === "string" && skill.trim().length > 0)
+          : [];
+
+        setTopSkill(skills.length > 0 ? String(skills[0]).trim().toLowerCase() : "");
+      } catch {
+        setTopSkill("");
+      }
+    }
+
+    loadTopSkills();
+  }, [apiBaseUrl, token]);
+
+  // Load saved jobs when tab is switched to "Saved Jobs"
+  useEffect(() => {
+    if (activeTab === "Saved Jobs" && token) {
+      loadSavedJobs();
+    }
+  }, [activeTab, token]);
+
+  async function loadSavedJobs() {
+    try {
+      const res = await fetch(`${apiBaseUrl}/saved-jobs`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (data.savedJobs && data.savedJobs.length > 0) {
+        // Transform saved jobs to match Job interface
+        const transformedJobs = data.savedJobs.map((sj: any) => ({
+          id: sj.project_id,
+          title: sj.title,
+          description: sj.description,
+          budget: formatBudgetDisplay(sj.budget_min, sj.budget_max, sj.job_type),
+          type: sj.job_type || 'Project',
+          duration: sj.estimated_time || 'TBD',
+          skills: Array.isArray(sj.skills) ? sj.skills : [],
+          client: {
+            id: sj.client_id,
+            name: sj.client_name || 'Unknown Client',
+            rating: 0,
+            verified: true,
+            location: sj.client_location || 'Remote',
+          },
+          postedAt: new Date(sj.project_created_at).toLocaleDateString(),
+        }));
+        setSavedJobs(transformedJobs);
+      } else {
+        setSavedJobs([]);
+      }
+    } catch (err) {
+      console.error('Error loading saved jobs:', err);
+      setSavedJobs([]);
+    }
+  }
+
+  async function handleApplyJob(jobId: string | number, jobOwnerId: string | number, jobTitle: string) {
     if (!token || !user) {
       setApplyError("Silakan login terlebih dahulu");
       return;
@@ -257,6 +500,35 @@ export const HomePage = () => {
         return;
       }
 
+      // Create a formal bid as well to register the application
+      try {
+        const job = apiJobs.find(j => j.id === jobId) || mockJobs.find(j => j.id === jobId);
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/bids`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            project_id: jobId,
+            bid_amount: job ? ((job as any).budget_min || 0) : 0,
+            cover_letter: "Halo! Saya tertarik dengan pekerjaan ini.",
+          }),
+        });
+      } catch (bidErr) {
+        console.error("Failed to create formal bid:", bidErr);
+      }
+
+      setAppliedJobIds((previous) => {
+        const next = previous.includes(String(jobId)) ? previous : [...previous, String(jobId)];
+        try {
+          window.localStorage.setItem(getAppliedJobStorageKey(user.id), JSON.stringify(next));
+        } catch {
+          // Ignore storage write failures.
+        }
+        return next;
+      });
+
       // Redirect to messages page
       router.push(`/messages`);
     } catch (err) {
@@ -267,7 +539,43 @@ export const HomePage = () => {
   }
 
   const jobsSource = apiJobs.length > 0 ? apiJobs : (mockJobs as unknown as Job[]);
-  const filteredJobs = jobsSource.filter((job) => job.title.toLowerCase().includes(searchTerm.toLowerCase()) || (job.skills && job.skills.some((skill) => skill.toLowerCase().includes(searchTerm.toLowerCase()))));
+  const visibleJobs = jobsSource.filter((job) => {
+    // Only show jobs that are still open
+    if (job.status && job.status !== "open" && job.status !== "Active") return false;
+    
+    if (!user) return true;
+    const ownerId = (job as any).client_id || job.client?.id;
+    return String(ownerId) !== String(user.id);
+  });
+
+  // Merge appliedJobIds from localStorage/conversations with realAppliedJobs from backend
+  const allAppliedJobIds = Array.from(new Set([
+    ...appliedJobIds, 
+    ...realAppliedJobs.map(job => String(job.id))
+  ]));
+
+  const allJobs = visibleJobs.filter((job: Job) => !allAppliedJobIds.includes(String(job.id)));
+  
+  const recommendedJobs = allJobs.filter((job: Job) => {
+    if (!topSkill) {
+      return true;
+    }
+    const jobSkills = Array.isArray(job.skills) ? job.skills.map((skill: string) => String(skill).toLowerCase()) : [];
+    return jobSkills.includes(topSkill);
+  });
+
+  const displayJobs =
+    activeTab === "Saved Jobs"
+      ? savedJobs
+      : activeTab === "All Jobs"
+        ? allJobs
+        : activeTab === "Applied Jobs"
+          ? realAppliedJobs
+          : recommendedJobs;
+  const filteredJobs = displayJobs.filter((job: any) => 
+    job.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (job.skills && job.skills.some((skill: string) => skill.toLowerCase().includes(searchTerm.toLowerCase())))
+  );
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -283,35 +591,90 @@ export const HomePage = () => {
       {applyError && (
         <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm">{applyError}</div>
       )}
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="hidden lg:block w-64 shrink-0">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 sticky top-24">
-            <h3 className="font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">Filters</h3>
-            <div className="space-y-6"><div><h4 className="font-semibold text-slate-700 mb-3 text-sm">Job Type</h4><label className="flex items-center gap-3 mb-2 cursor-pointer"><input type="checkbox" className="rounded text-blue-500 focus:ring-blue-500 h-4 w-4" defaultChecked /><span className="text-slate-600 text-sm">Fixed Price</span></label><label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" className="rounded text-blue-500 focus:ring-blue-500 h-4 w-4" defaultChecked /><span className="text-slate-600 text-sm">Hourly Rate</span></label></div></div>
-          </div>
-        </div>
+      <div>
         <div className="flex-1">
-          <div className="flex gap-6 mb-6 border-b border-slate-200">{["Recommended Jobs", "Saved Jobs"].map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === tab ? "text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>{tab}{activeTab === tab ? <div className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-full" style={{ backgroundColor: colors.primary }} /> : null}</button>))}</div>
+          <div className="flex gap-6 mb-6 border-b border-slate-200 overflow-x-auto">{tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold transition-colors relative whitespace-nowrap ${activeTab === tab ? "text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>{tab}{activeTab === tab ? <div className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-full" style={{ backgroundColor: colors.primary }} /> : null}</button>))}</div>
           {isFetching ? (
             <div className="space-y-4">{[1, 2, 3].map((i) => (<div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 animate-pulse"><div className="h-6 bg-slate-100 rounded-full w-2/3 mb-4" /><div className="h-4 bg-slate-100 rounded-full w-full mb-2" /><div className="h-4 bg-slate-100 rounded-full w-5/6" /></div>))}</div>
           ) : (
-            <div className="space-y-4">{filteredJobs.length > 0 ? filteredJobs.map((job) => (<div key={job.id} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 group"><div className="flex justify-between items-start mb-2"><h3 className="text-xl font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>{job.title}</h3></div><div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500 mb-4"><span className="flex items-center gap-1"><IconClock /> {job.type ?? "Project"}</span><span>•</span><span className="flex items-center gap-1 text-slate-700"><IconDollar /> {job.budget ?? (job as unknown as Record<string, string>).budget_min ?? "Negotiable"}</span><span>•</span><span>Est. Time: {job.duration ?? "TBD"}</span></div><p className="text-slate-600 mb-6 line-clamp-2 leading-relaxed text-sm cursor-pointer" onClick={() => router.push(`/jobs/${job.id}`)}>{job.description}</p><div className="flex flex-wrap gap-2 mb-6">{(job.skills ?? []).map((skill) => (<Badge key={skill} text={skill} type="default" />))}</div><div className="flex items-center justify-between pt-4 border-t border-slate-100"><div className="flex items-center gap-3 text-sm flex-1">{job.client?.verified ? (<span className="flex items-center gap-1 text-green-600 font-medium"><IconCheckCircle /> Payment verified</span>) : (<span className="text-slate-500 font-medium">{(job as unknown as Record<string, string>).client_name ?? "Client"}</span>)}<span className="text-slate-300">|</span><span className="flex items-center gap-1 text-slate-500"><IconMapPin /> {job.client?.location ?? (job as unknown as Record<string, string>).location ?? "Remote"}</span></div><div className="flex gap-2">
-  <button 
-    onClick={() => {
-      const client_id = (job as any).client_id || job.client?.id;
-      if (!client_id) {
-        setApplyError("Informasi client tidak ditemukan");
-        return;
-      }
-      handleApplyJob(job.id, client_id, job.title);
-    }} 
-    disabled={applyingJobId === job.id} 
-    className="px-4 py-2 bg-[#8cbbed] text-white rounded-xl text-sm font-semibold hover:bg-[#7aabdb] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    {applyingJobId === job.id ? "Applying..." : "Apply"}
-  </button>
-  <span className="text-xs text-slate-400">{job.postedAt ?? "Baru saja"}</span>
-</div></div></div>)) : (<div className="text-center py-20 bg-white rounded-3xl border border-slate-200"><h3 className="text-lg font-bold text-slate-800 mb-2">No jobs found</h3></div>)}</div>
+            <div className="space-y-4">{filteredJobs.length > 0 ? filteredJobs.map((job) => {
+              const jobId = String(job.id);
+              const isApplied = activeTab === "Applied Jobs" || appliedJobIds.includes(jobId);
+              const clientId = (job as any).client_id || job.client?.id;
+              const budgetText = formatRupiahText(job.budget);
+              
+              const bidStatus = (job as any).bid_status;
+              const contractStatus = (job as any).contract_status;
+              
+              let statusLabel = "";
+              let statusColor = "";
+              let statusDesc = "";
+              
+              if (activeTab === "Applied Jobs") {
+                if (contractStatus === "completed") {
+                  statusLabel = "DONE";
+                  statusColor = "bg-blue-100 text-blue-700";
+                } else if (contractStatus === "on_progress") {
+                  statusLabel = "ON GOING";
+                  statusColor = "bg-green-100 text-green-700";
+                } else if (bidStatus === "rejected") {
+                  statusLabel = "Ditolak";
+                  statusColor = "bg-red-100 text-red-700";
+                  statusDesc = "Anda belum diterima pada kesempatan ini. Tetap semangat mencari peluang lain ya!";
+                } else {
+                  statusLabel = "Applied";
+                  statusColor = "bg-slate-100 text-slate-700";
+                  statusDesc = "Lamaran Anda sedang ditinjau oleh klien.";
+                }
+              }
+
+              return (
+                <div key={jobId} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 group">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors cursor-pointer" onClick={() => router.push(`/jobs/${jobId}`)}>{job.title}</h3>
+                      {statusLabel && (
+                        <div className="mt-2 flex flex-col gap-1">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold w-fit ${statusColor}`}>
+                            STATUS: {statusLabel.toUpperCase()}
+                          </span>
+                          {statusDesc && <p className="text-[11px] text-slate-500 italic mt-1">{statusDesc}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500 mb-4">
+                    <span className="flex items-center gap-1"><IconClock /> {job.type ?? "Project"}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1 text-slate-700">{budgetText === "Negotiable" ? budgetText : (<><span className="font-bold text-slate-700">Rp</span> {budgetText}</>)}</span>
+                    <span>•</span>
+                    <span>Est. Time: {job.duration ?? "TBD"}</span>
+                  </div>
+                  <p className="text-slate-600 mb-6 line-clamp-2 leading-relaxed text-sm cursor-pointer" onClick={() => router.push(`/jobs/${jobId}`)}>{job.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-6">{(job.skills ?? []).map((skill: string) => (<Badge key={skill} text={skill} type="default" />))}</div>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-3 text-sm flex-1">
+                      <span className="flex items-center gap-1 text-slate-500"><IconMapPin /> {job.client?.location ?? (job as unknown as Record<string, string>).location ?? "Remote"}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          if (!clientId) {
+                            setApplyError("Informasi client tidak ditemukan");
+                            return;
+                          }
+                          handleApplyJob(job.id, clientId, job.title);
+                        }} 
+                        disabled={applyingJobId === job.id || isApplied} 
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:cursor-not-allowed ${isApplied ? "bg-slate-200 text-slate-600 cursor-default" : "bg-[#8cbbed] text-white hover:bg-[#7aabdb] disabled:opacity-50"}`}
+                      >
+                        {applyingJobId === job.id ? "Applying..." : isApplied ? "Applied" : "Apply"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : (<div className="text-center py-20 bg-white rounded-3xl border border-slate-200"><h3 className="text-lg font-bold text-slate-800 mb-2">No jobs found</h3></div>)}</div>
           )}
         </div>
       </div>
@@ -321,13 +684,261 @@ export const HomePage = () => {
 
   export const JobDetailPage = ({ job }: { job: Job | null }) => {
   const [modalOpen, setModalOpen] = useState(false);
-    const router = useRouter();
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+  const router = useRouter();
+  const { user, token } = useAuth();
+
+  const isJobOpen = !job?.status || job.status === "open" || job.status === "Active";
+
   if (!job) return null;
+
+  // Check if job is saved or applied on component mount
+  useEffect(() => {
+    if (token && job?.id) {
+      checkSavedStatus();
+      checkAppliedStatus();
+    }
+  }, [token, job?.id]);
+
+  const checkAppliedStatus = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/bids/check/${job.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      console.log('Applied status check for job', job.id, ':', data);
+      setIsApplied(data.applied || false);
+    } catch (err) {
+      console.error('Error checking applied status:', err);
+    }
+  };
+
+  const checkSavedStatus = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/saved-jobs/check/${job.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      setIsSaved(data.isSaved || false);
+    } catch (err) {
+      console.error('Error checking saved status:', err);
+    }
+  };
+
+  const handleSaveJob = async () => {
+    if (!token || !user) {
+      alert('Silakan login terlebih dahulu');
+      return;
+    }
+
+    if (user.id === (job?.client?.id || job?.id)) {
+      alert('Anda tidak dapat menyimpan pekerjaan milik Anda sendiri');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const endpoint = isSaved ? '/unsave' : '';
+      const url = isSaved 
+        ? `${process.env.NEXT_PUBLIC_API_URL}/saved-jobs/unsave`
+        : `${process.env.NEXT_PUBLIC_API_URL}/saved-jobs`;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          projectId: job.id,
+        }),
+      });
+
+      if (res.ok) {
+        setIsSaved(!isSaved);
+        alert(isSaved ? 'Pekerjaan dihapus dari Saved Jobs' : 'Pekerjaan disimpan ke Saved Jobs');
+      } else {
+        alert('Gagal menyimpan pekerjaan');
+      }
+    } catch (err) {
+      console.error('Error saving job:', err);
+      alert('Terjadi kesalahan');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleApplyJob = async () => {
+    if (!token || !user) {
+      alert('Silakan login terlebih dahulu');
+      return;
+    }
+
+    const jobOwnerId = job?.client?.id;
+    if (!jobOwnerId) {
+      alert('Informasi client tidak ditemukan');
+      return;
+    }
+
+    if (user.id === jobOwnerId) {
+      alert('Anda tidak dapat apply job milik Anda sendiri');
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          other_user_id: jobOwnerId,
+          job_id: job.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Gagal apply job');
+        return;
+      }
+
+      // Create a formal bid as well
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bids`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          project_id: job.id,
+          bid_amount: (job as any).budget_min || 0,
+          cover_letter: "Halo! Saya tertarik dengan pekerjaan ini.",
+        }),
+      });
+
+      setIsApplied(true);
+      setModalOpen(true);
+    } catch (err) {
+      console.error('Error applying job:', err);
+      alert('Tidak dapat terhubung ke server');
+    } finally {
+      setIsApplying(false);
+    }
+  };
+  
+  // Safe access to job properties with defaults
+  const jobTitle = job?.title || 'Job Title';
+  const jobType = job?.type || 'Project';
+  const jobDuration = job?.duration || 'TBD';
+  const jobBudget = formatRupiahText(job?.budget);
+  const jobDescription = job?.description || 'No description provided';
+  const jobSkills = Array.isArray(job?.skills) ? job.skills : [];
+  
+  const clientName = job?.client?.name || 'Unknown Client';
+  const clientRating = job?.client?.rating || 0;
+  const clientLocation = job?.client?.location || 'Remote';
+  const clientVerified = job?.client?.verified ?? true;
+
+  // Check if job is ON GOING based on contract status
+  const isOnGoing = (job as any)?.contract_status === 'on_progress';
+  const isDone = (job as any)?.contract_status === 'completed';
+  const isRejected = (job as any)?.bid_status === 'rejected';
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
-        <CustomModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Proposal Terkirim!" message={`Proposal Anda untuk pekerjaan "${job.title}" telah berhasil dikirim ke klien.`} actionText="Lihat Pesan Saya" onAction={() => router.push("/messages")} />
+        <CustomModal isOpen={modalOpen} onClose={() => router.push("/messages")} title="Proposal Terkirim!" message={`Proposal Anda untuk pekerjaan "${jobTitle}" telah berhasil dikirim ke klien dengan pesan template. Silakan tunggu respons klien di halaman messages.`} actionText="Lihat Pesan Saya" onAction={() => router.push("/messages")} />
         <button onClick={() => router.push("/home")} className="mb-6 flex items-center text-slate-500 hover:text-slate-800 transition-colors font-semibold group"><span className="mr-2 group-hover:-translate-x-1 transition-transform">←</span> Back to Search</button>
-      <div className="grid md:grid-cols-3 gap-8"><div className="md:col-span-2 space-y-6"><div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200"><h1 className="text-3xl font-extrabold text-slate-900 mb-6 leading-tight">{job.title}</h1><div className="flex flex-wrap gap-6 mb-8 pb-8 border-b border-slate-100"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500"><IconClock /></div><div><p className="text-sm font-bold text-slate-800">{job.type}</p><p className="text-xs text-slate-500">{job.duration}</p></div></div><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600"><IconDollar /></div><div><p className="text-sm font-bold text-slate-800">{job.budget}</p><p className="text-xs text-slate-500">Budget</p></div></div></div><h3 className="text-lg font-bold text-slate-800 mb-4">Job Description</h3><p className="text-slate-700 leading-relaxed mb-8 whitespace-pre-line">{job.description}</p><h3 className="text-lg font-bold text-slate-800 mb-4">Skills and Expertise</h3><div className="flex flex-wrap gap-2 mb-2">{job.skills.map((skill) => (<Badge key={skill} text={skill} type="primary" />))}</div></div></div><div className="md:col-span-1 space-y-6"><div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 sticky top-24"><Button variant="primary" className="w-full mb-4" onClick={() => setModalOpen(true)}>Apply Now</Button><Button variant="outline" className="w-full mb-6">Save Job</Button><div className="pt-6 border-t border-slate-100"><h4 className="font-bold text-slate-800 mb-4">About the Client</h4><div className="space-y-4"><div><p className="font-semibold text-slate-800">{job.client.name}</p><div className="flex items-center gap-2 mt-1"><Rating score={job.client.rating} /><span className="text-xs text-slate-500">(12 reviews)</span></div></div><div><span className="flex items-center gap-2 text-sm text-slate-700"><IconMapPin /> {job.client.location}</span></div><div><span className="flex items-center gap-2 text-sm text-slate-700"><IconCheckCircle /> {job.client.verified ? "Payment Verified" : "Unverified"}</span></div></div></div></div></div></div>
+      <div className="grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">{jobTitle}</h1>
+              {isOnGoing && (
+                <span className="inline-block px-4 py-2 bg-green-100 text-green-700 font-semibold text-sm rounded-full">
+                  ON GOING
+                </span>
+              )}
+              {isDone && (
+                <span className="inline-block px-4 py-2 bg-blue-100 text-blue-700 font-semibold text-sm rounded-full">
+                  DONE
+                </span>
+              )}
+              {isRejected && (
+                <span className="inline-block px-4 py-2 bg-red-100 text-red-700 font-semibold text-sm rounded-full">
+                  Ditolak
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-6 mb-8 pb-8 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500"><IconClock /></div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{jobType}</p>
+                  <p className="text-xs text-slate-500">{jobDuration}</p>
+                </div>
+              </div>
+                <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-700 font-bold text-sm">Rp</div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{jobBudget}</p>
+                  <p className="text-xs text-slate-500">Budget</p>
+                </div>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Job Description</h3>
+            <p className="text-slate-700 leading-relaxed mb-8 whitespace-pre-line">{jobDescription}</p>
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Skills and Expertise</h3>
+            <div className="flex flex-wrap gap-2 mb-2">{jobSkills.length > 0 ? jobSkills.map((skill) => (<Badge key={skill} text={skill} type="primary" />)) : <p className="text-slate-500 text-sm">No specific skills required</p>}</div>
+          </div>
+        </div>
+        <div className="md:col-span-1 space-y-6">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 sticky top-24">
+            <Button 
+              variant="primary" 
+              className={`w-full mb-4 ${isApplied ? "bg-slate-200 text-slate-600 hover:bg-slate-200 border-none" : ""}`} 
+              onClick={handleApplyJob} 
+              disabled={isApplying || isApplied}
+            >
+              {isApplying ? 'Applying...' : isApplied ? 'Applied' : 'Apply Now'}
+            </Button>
+            <Button 
+              variant={isSaved ? "primary" : "outline"} 
+              className="w-full mb-6" 
+              onClick={handleSaveJob}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Loading...' : isSaved ? '⭐ Saved' : 'Save Job'}
+            </Button>
+            <div className="pt-6 border-t border-slate-100">
+              <h4 className="font-bold text-slate-800 mb-4">About the Client</h4>
+              <div className="space-y-4">
+                <div>
+                  <p className="font-semibold text-slate-800">{clientName}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Rating score={clientRating} />
+                    <span className="text-xs text-slate-500">(12 reviews)</span>
+                  </div>
+                </div>
+                <div>
+                  <span className="flex items-center gap-2 text-sm text-slate-700"><IconMapPin /> {clientLocation}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

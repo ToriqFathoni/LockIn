@@ -65,7 +65,8 @@ async function createContractForClient(clientId, payload) {
 
     await client.query('UPDATE bids SET status = $1 WHERE id = $2', ['accepted', bid_id]);
 
-    await client.query('UPDATE projects SET status = $1 WHERE id = $2', ['closed', bid.project_id]);
+    // Update project status to 'progress' instead of 'closed' for active projects
+    await client.query('UPDATE projects SET status = $1 WHERE id = $2', ['progress', bid.project_id]);
 
     await client.query('COMMIT');
     return contract;
@@ -146,9 +147,52 @@ async function updateContractForClient(contractId, clientId, payload) {
   }
 }
 
-async function getAllContracts(clientId) {
-  const result = await db.query('SELECT * FROM contracts WHERE client_id = $1', [clientId]);
+async function getAllContracts(userId) {
+  const result = await db.query(
+    'SELECT * FROM contracts WHERE client_id = $1 OR freelancer_id = $1', 
+    [userId]
+  );
   return result.rows;
+}
+
+async function clientCompleteContract(contractId, clientId) {
+  const result = await db.query(
+    `UPDATE contracts 
+     SET client_confirmed_at = CURRENT_TIMESTAMP 
+     WHERE id = $1 AND client_id = $2 
+     RETURNING *`,
+    [contractId, clientId]
+  );
+  return result.rows[0] || null;
+}
+
+async function freelancerConfirmPayment(contractId, freelancerId) {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `UPDATE contracts 
+       SET freelancer_confirmed_at = CURRENT_TIMESTAMP, status = 'completed', ended_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND freelancer_id = $2 
+       RETURNING *`,
+      [contractId, freelancerId]
+    );
+
+    const contract = result.rows[0];
+    if (contract) {
+      await client.query('UPDATE projects SET status = $1 WHERE id = $2', ['closed', contract.project_id]);
+      await client.query('UPDATE bids SET status = $1 WHERE id = $2', ['withdrawn', contract.bid_id]);
+    }
+
+    await client.query('COMMIT');
+    return contract || null;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = {
@@ -157,4 +201,6 @@ module.exports = {
   getContractById,
   getContractByIdAndClientId,
   getAllContracts,
+  clientCompleteContract,
+  freelancerConfirmPayment,
 };

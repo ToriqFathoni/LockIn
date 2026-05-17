@@ -5,10 +5,12 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
 router.get('/public', controller.getPublicProjects);
+router.get('/public/:projectId', controller.getPublicProjectById);
 
 router.use(authenticateToken);
 
 router.get('/', controller.getAllProjects);
+router.get('/applied', controller.getAppliedProjects);
 router.get('/:projectId', controller.getProjectById);
 router.post('/', controller.createProject);
 router.put('/:projectId', controller.updateProject);

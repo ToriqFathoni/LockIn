@@ -1,7 +1,8 @@
 const db = require('../database');
 
 async function getOrCreateConversation(user1Id, user2Id, jobId = null) {
-  const [userId1, userId2] = user1Id < user2Id ? [user1Id, user2Id] : [user2Id, user1Id];
+  // Ensure consistent ordering of UUIDs for the UNIQUE constraint
+  const [userId1, userId2] = String(user1Id).localeCompare(String(user2Id)) < 0 ? [user1Id, user2Id] : [user2Id, user1Id];
 
   try {
     const existing = await db.query(

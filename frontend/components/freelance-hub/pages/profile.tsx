@@ -71,7 +71,7 @@ export const ProfilePage = () => {
       }
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/freelancer-profile/me`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/freelancer-profile/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -133,7 +133,7 @@ export const ProfilePage = () => {
     setForm({
       title: displayProfile.title,
       location: displayProfile.location,
-      hourlyRate: displayProfile.rawHourlyRate,
+      hourlyRate: String(displayProfile.rawHourlyRate ?? ""),
       bio: displayProfile.bio,
       skills: joinList(displayProfile.skills),
       achievements: joinList(displayProfile.achievements),

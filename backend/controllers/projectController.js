@@ -137,19 +137,53 @@ async function getAllProjects(req, res) {
 
 async function getProjectById(req, res) {
   try {
-    const clientId = req.user.id;
+    const userId = req.user.id;
     const { projectId } = req.params;
+    
+    console.log(`[getProjectById] userId=${userId}, projectId=${projectId}`);
 
     const project = await projectService.getProjectById(projectId);
     if (!project) {
+      console.log(`[getProjectById] Project not found: ${projectId}`);
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    if (project.client_id !== clientId) {
-      return res.status(403).json({ error: 'Not authorized to view this project' });
+    // Allow access if user is the owner
+    if (project.client_id === userId) {
+      console.log(`[getProjectById] User is owner, returning project`);
+      return res.json(project);
     }
 
-    return res.json({ project });
+    // Otherwise, check if freelancer has applied or has contract
+    // and add contract/bid status to the response
+    const projectForFreelancer = await projectService.getProjectDetailsForFreelancer(userId, projectId);
+    if (projectForFreelancer) {
+      console.log(`[getProjectById] User has contract/bid, returning project with status`, {
+        contract_status: projectForFreelancer.contract_status,
+        bid_status: projectForFreelancer.bid_status
+      });
+      return res.json(projectForFreelancer);
+    }
+
+    console.log(`[getProjectById] Freelancer not authorized for project ${projectId}`);
+    return res.status(403).json({ error: 'Not authorized to view this project' });
+  } catch (err) {
+    console.error('[getProjectById] Error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+async function getProjectDetailsForFreelancer(req, res) {
+  try {
+    const freelancerId = req.user.id;
+    const { projectId } = req.params;
+
+    const project = await projectService.getProjectDetailsForFreelancer(freelancerId, projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found or not accessible' });
+    }
+
+    return res.json(project);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Server error' });
@@ -166,6 +200,33 @@ async function getPublicProjects(req, res) {
   }
 }
 
+async function getPublicProjectById(req, res) {
+  try {
+    const { projectId } = req.params;
+
+    const project = await projectService.getPublicProjectById(projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    return res.json(project);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+async function getAppliedProjects(req, res) {
+  try {
+    const freelancerId = req.user.id;
+    const projects = await projectService.getAppliedProjectsForFreelancer(freelancerId);
+    return res.json({ projects });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
 module.exports = {
   createProject,
   updateProject,
@@ -173,4 +234,7 @@ module.exports = {
   getAllProjects,
   getProjectById,
   getPublicProjects,
+  getPublicProjectById,
+  getAppliedProjects,
+  getProjectDetailsForFreelancer,
 };

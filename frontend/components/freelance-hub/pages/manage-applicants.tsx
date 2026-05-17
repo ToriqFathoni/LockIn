@@ -14,32 +14,18 @@ export const ManageApplicantsPage = () => {
   const [jobDetail, setJobDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const [applicants, setApplicants] = useState([
-    {
-      id: 1,
-      name: "Budi Santoso",
-      avatar: "https://i.pravatar.cc/150?u=budi",
-      coverLetter: "Saya memiliki pengalaman 5 tahun di bidang ini dan siap membantu proyek Anda.",
-      skills: ["React", "Node.js"],
-      status: "PENDING"
-    },
-    {
-      id: 2,
-      name: "Siti Aminah",
-      avatar: "https://i.pravatar.cc/150?u=siti",
-      coverLetter: "Portofolio saya sangat cocok dengan kebutuhan proyek ini.",
-      skills: ["UI/UX", "Figma"],
-      status: "PENDING"
-    }
-  ]);
+  const [applicants, setApplicants] = useState<any[]>([]);
 
   const [showConfirmAccept, setShowConfirmAccept] = useState(false);
-  const [selectedApplicant, setSelectedApplicant] = useState<number | null>(null);
+  const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
 
   useEffect(() => {
     if (jobId && token) {
       setLoading(true);
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${jobId}`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      
+      // Fetch Job Details
+      fetch(`${apiUrl}/projects/${jobId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -48,6 +34,32 @@ export const ManageApplicantsPage = () => {
       .then(data => {
         if (data.project) {
           setJobDetail(data.project);
+        } else if (data.id) {
+          setJobDetail(data);
+        }
+      })
+      .catch(console.error);
+
+      // Fetch Applicants (Bids)
+      fetch(`${apiUrl}/bids/project/${jobId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.bids) {
+          const formattedApplicants = data.bids.map((bid: any) => ({
+            id: bid.id || `msg-${bid.freelancer_id}`,
+            name: bid.freelancer_name || "Unknown Freelancer",
+            freelancerId: bid.freelancer_id,
+            avatar: bid.profile_picture || null,
+            coverLetter: bid.cover_letter || "Tidak ada pesan tambahan.",
+            skills: Array.isArray(bid.freelancer_skills) ? bid.freelancer_skills : [],
+            status: bid.status === 'pending' ? 'PENDING' : bid.status === 'accepted' ? 'HIRED' : 'REJECTED',
+            isMessageOnly: bid.is_message_only
+          }));
+          setApplicants(formattedApplicants);
         }
       })
       .catch(console.error)
@@ -55,32 +67,102 @@ export const ManageApplicantsPage = () => {
     }
   }, [jobId, token]);
 
-  const handleAcceptClick = (applicantId: number) => {
+  const handleAcceptClick = (applicantId: string) => {
     setSelectedApplicant(applicantId);
     setShowConfirmAccept(true);
   };
 
-  const confirmAccept = () => {
-    if (selectedApplicant === null) return;
+  const confirmAccept = async () => {
+    if (selectedApplicant === null || !token) return;
     
-    setApplicants(prev => prev.map(app => {
-      if (app.id === selectedApplicant) {
-        return { ...app, status: "HIRED" };
-      }
-      return { ...app, status: "REJECTED" };
-    }));
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      let finalBidId = selectedApplicant;
 
-    if (jobId) {
-      const hiredJobs = JSON.parse(localStorage.getItem("hiredDummyJobs") || "{}");
-      hiredJobs[jobId] = true;
-      localStorage.setItem("hiredDummyJobs", JSON.stringify(hiredJobs));
+      // If it's a message-only applicant, create a formal bid first
+      if (selectedApplicant.startsWith('msg-')) {
+        const freelancerId = selectedApplicant.replace('msg-', '');
+        const bidResponse = await fetch(`${apiUrl}/bids`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          // Note: We're acting as the client here, but normally freelancers create bids.
+          // However, for this flow, we'll allow creating a bid on behalf of the application.
+          // In a real app, you might want a specialized endpoint.
+          body: JSON.stringify({ 
+            project_id: jobId, 
+            freelancer_id: freelancerId, // We need to support this in the backend
+            bid_amount: jobDetail.budget_min || 0,
+            cover_letter: "Accepted from conversation."
+          })
+        });
+
+        if (bidResponse.ok) {
+          const bidData = await bidResponse.json();
+          finalBidId = bidData.bid.id;
+        } else {
+          const errorData = await bidResponse.json();
+          alert(`Gagal memproses lamaran: ${errorData.error || "Terjadi kesalahan server"}`);
+          return;
+        }
+      }
+
+      const response = await fetch(`${apiUrl}/contracts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ bid_id: finalBidId })
+      });
+
+      if (response.ok) {
+        const applicantObj = applicants.find(a => a.id === selectedApplicant);
+        if (applicantObj?.freelancerId) {
+          try {
+            const convRes = await fetch(`${apiUrl}/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ other_user_id: applicantObj.freelancerId, job_id: jobId })
+            });
+            const convData = await convRes.json();
+            if (convRes.ok && convData.conversation) {
+              await fetch(`${apiUrl}/messages/${convData.conversation.id}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                  content: `Selamat! Anda telah terpilih untuk proyek "${jobDetail.title}". Mari kita diskusikan langkah selanjutnya.`
+                })
+              });
+            }
+          } catch (e) {
+            console.error("Failed to send auto-message", e);
+          }
+        }
+
+        setApplicants(prev => prev.map(app => {
+          if (app.id === selectedApplicant) {
+            return { ...app, status: "HIRED" };
+          }
+          return { ...app, status: "REJECTED" };
+        }));
+
+        setShowConfirmAccept(false);
+        alert("Berhasil merekrut freelancer! Anda akan diarahkan ke halaman manajemen proyek.");
+        
+        setTimeout(() => {
+          router.push(`/manage-job?job=${jobId}&role=client`);
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        alert(`Gagal merekrut: ${errorData.error || "Terjadi kesalahan server"}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan jaringan.");
     }
-    
-    setShowConfirmAccept(false);
-    
-    setTimeout(() => {
-      router.push(`/manage-job?job=${jobId}&role=client`);
-    }, 1500);
   };
 
   const cancelAccept = () => {
@@ -88,10 +170,85 @@ export const ManageApplicantsPage = () => {
     setSelectedApplicant(null);
   };
 
-  const handleReject = (applicantId: number) => {
-    setApplicants(prev => prev.map(app => 
-      app.id === applicantId ? { ...app, status: "REJECTED" } : app
-    ));
+  const handleReject = async (applicantId: string) => {
+    if (!token) return;
+
+    if (window.confirm("Apakah Anda yakin ingin menolak pelamar ini?")) {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        
+        let finalBidId = applicantId;
+        
+        // If message-only, we create a bid with rejected status
+        if (applicantId.startsWith('msg-')) {
+          const freelancerId = applicantId.split('-')[1];
+          const bidResponse = await fetch(`${apiUrl}/bids`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+              project_id: jobId, 
+              freelancer_id: freelancerId,
+              bid_amount: 0,
+              cover_letter: "Rejected from conversation."
+            })
+          });
+
+          if (bidResponse.ok) {
+            const bidData = await bidResponse.json();
+            finalBidId = bidData.bid.id;
+          } else {
+            const errorData = await bidResponse.json();
+            alert(`Gagal memproses penolakan: ${errorData.error || "Terjadi kesalahan server"}`);
+            return;
+          }
+        }
+
+        const response = await fetch(`${apiUrl}/bids/${finalBidId}/reject`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const applicantObj = applicants.find(a => a.id === applicantId);
+          if (applicantObj?.freelancerId) {
+            try {
+              const convRes = await fetch(`${apiUrl}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ other_user_id: applicantObj.freelancerId, job_id: jobId })
+              });
+              const convData = await convRes.json();
+              if (convRes.ok && convData.conversation) {
+                await fetch(`${apiUrl}/messages/${convData.conversation.id}/messages`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({
+                    content: `Halo. Terima kasih atas ketertarikan Anda pada proyek "${jobDetail.title}". Sayangnya, kami memutuskan untuk melanjutkan dengan kandidat lain kali ini. Tetap semangat!`
+                  })
+                });
+              }
+            } catch (e) {
+              console.error("Failed to send auto-message", e);
+            }
+          }
+
+          setApplicants(prev => prev.map(app => 
+            app.id === applicantId ? { ...app, status: "REJECTED" } : app
+          ));
+        } else {
+          const errorData = await response.json();
+          alert(`Gagal menolak: ${errorData.error || "Terjadi kesalahan server"}`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Terjadi kesalahan jaringan.");
+      }
+    }
   };
 
   if (loading) {
@@ -139,12 +296,45 @@ export const ManageApplicantsPage = () => {
         </div>
       </div>
 
+      {jobDetail.status === 'progress' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3 text-blue-700">
+            <span className="text-2xl">🎉</span>
+            <div>
+              <p className="font-bold text-lg">Freelancer Telah Terpilih!</p>
+              <p className="text-sm">Proyek ini sedang berjalan. Anda dapat mengelola progres dan pembayaran di halaman manajemen.</p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => router.push(`/manage-job?job=${jobId}&role=client`)}
+            className="bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap shadow-sm"
+          >
+            Kelola Proyek & Pembayaran
+          </Button>
+        </div>
+      )}
+
       <div>
-        <h2 className="text-xl font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">Daftar Pelamar</h2>
+        <h2 className="text-xl font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">
+          {jobDetail.status === 'progress' ? "Freelancer Terpilih" : "Daftar Pelamar"}
+        </h2>
         <div className="space-y-4">
-          {applicants.map(applicant => (
+          {applicants.length === 0 ? (
+            <div className="text-center py-10 bg-white rounded-3xl border border-slate-200 text-slate-500">
+              Belum ada pelamar untuk pekerjaan ini.
+            </div>
+          ) : (
+            applicants
+              .filter(a => jobDetail.status !== 'progress' || a.status === 'HIRED')
+              .map(applicant => (
             <div key={applicant.id} className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border ${applicant.status === "HIRED" ? "border-green-400 bg-green-50" : applicant.status === "REJECTED" ? "border-slate-200 opacity-60" : "border-slate-200"} flex flex-col md:flex-row gap-6 items-start md:items-center`}>
-              <img src={applicant.avatar} alt={applicant.name} className="w-16 h-16 rounded-full object-cover" />
+              {applicant.avatar ? (
+                <img src={applicant.avatar} alt={applicant.name} className="w-16 h-16 rounded-full object-cover shadow-sm border border-slate-100" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-[#8cbbed] flex items-center justify-center text-white font-bold text-2xl shadow-sm border-2 border-white shrink-0">
+                  {applicant.name.charAt(0)}
+                </div>
+              )}
               <div className="flex-1">
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-bold text-slate-800">{applicant.name}</h3>
@@ -153,7 +343,7 @@ export const ManageApplicantsPage = () => {
                 </div>
                 <p className="text-slate-600 text-sm mt-1">{applicant.coverLetter}</p>
                 <div className="mt-3 flex gap-2">
-                  {applicant.skills.map(skill => (
+                  {applicant.skills.map((skill: string) => (
                     <span key={skill} className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-600">{skill}</span>
                   ))}
                 </div>
@@ -165,7 +355,8 @@ export const ManageApplicantsPage = () => {
                 </div>
               )}
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

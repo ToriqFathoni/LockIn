@@ -10,5 +10,7 @@ router.get('/', controller.getAllContracts);
 router.get('/:contractId', controller.getContractById);
 router.post('/', controller.createContract);
 router.put('/:contractId', controller.updateContract);
+router.put('/:contractId/complete', controller.completeContract);
+router.put('/:contractId/confirm-payment', controller.confirmPayment);
 
 module.exports = router;
