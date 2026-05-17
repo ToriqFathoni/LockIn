@@ -15,6 +15,7 @@ async function runMigrations() {
         role VARCHAR(50) NOT NULL CHECK (role IN ('client', 'freelancer', 'both')),
         phone VARCHAR(20),
         location VARCHAR(255),
+        profile_picture TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -68,7 +69,7 @@ async function runMigrations() {
         id SERIAL PRIMARY KEY,
         user_1_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         user_2_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        job_id INTEGER,
+        job_id UUID,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_1_id, user_2_id),
@@ -106,6 +107,36 @@ async function runMigrations() {
       console.log('⚠️  Note: job_id FK might not be applicable (projects table may not exist)');
     }
 
+    // 8. Create saved_jobs table for bookmarking/favoriting jobs
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS saved_jobs (
+        id SERIAL PRIMARY KEY,
+        freelancer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        project_id UUID NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(freelancer_id, project_id)
+      )
+    `);
+
+    // Add foreign key constraint for project_id if projects table exists
+    try {
+      const projectsExist = await db.query(`
+        SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'projects')
+      `);
+      
+      if (projectsExist.rows[0].exists) {
+        await db.query(`
+          ALTER TABLE saved_jobs
+          ADD CONSTRAINT saved_jobs_project_id_fkey
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        `).catch(() => {
+          // Constraint may already exist, ignore
+        });
+      }
+    } catch (e) {
+      console.log('⚠️  Note: project_id FK might not be applicable (projects table may not exist yet)');
+    }
+
     // 7. Create indexes for performance
     await db.query(`CREATE INDEX IF NOT EXISTS idx_conversations_user_1_id ON conversations(user_1_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_conversations_user_2_id ON conversations(user_2_id)`);
@@ -113,6 +144,8 @@ async function runMigrations() {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_freelancer_profiles_freelancer_id ON freelancer_profiles(freelancer_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_saved_jobs_freelancer_id ON saved_jobs(freelancer_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_saved_jobs_project_id ON saved_jobs(project_id)`);
 
     console.log('✅ Migration completed: Users table with UUID primary keys created successfully');
   } catch (err) {

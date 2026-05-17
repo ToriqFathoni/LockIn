@@ -1,5 +1,5 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, 'env') });
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 // const { runMigrations } = require('./database/migrate');
@@ -28,6 +28,7 @@ app.use('/bids', require('./routes/bidRoutes'));
 app.use('/contracts', require('./routes/contractRoutes'));
 app.use('/reviews', require('./routes/reviewRoutes'));
 app.use('/messages', require('./routes/chatRoutes'));
+app.use('/saved-jobs', require('./routes/savedJobRoutes'));
 
 const PORT = process.env.PORT || 5000;
 

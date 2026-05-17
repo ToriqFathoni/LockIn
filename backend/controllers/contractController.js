@@ -17,29 +17,8 @@ async function createContract(req, res) {
 
     return res.status(201).json({ contract });
   } catch (err) {
-    console.error(err);
-
-    if (err.code === 'VALIDATION_ERROR') {
-      return res.status(400).json({ error: err.message });
-    }
-
-    if (err.code === 'BID_NOT_FOUND') {
-      return res.status(404).json({ error: 'Bid not found' });
-    }
-
-    if (err.code === 'PROJECT_NOT_FOUND') {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    if (err.code === 'UNAUTHORIZED') {
-      return res.status(403).json({ error: err.message });
-    }
-
-    if (err && err.code === '23505') {
-      return res.status(409).json({ error: 'Contract already exists for this bid or project' });
-    }
-
-    return res.status(500).json({ error: 'Server error' });
+    console.error('ERROR IN createContract:', err);
+    return res.status(500).json({ error: `Server error: ${err.message}` });
   }
 }
 
@@ -81,12 +60,11 @@ async function getAllContracts(req, res) {
 
 async function getContractById(req, res) {
   try {
-    const clientId = req.user.id;
     const { contractId } = req.params;
 
-    const contract = await contractService.getContractByIdAndClientId(contractId, clientId);
+    const contract = await contractService.getContractById(contractId);
     if (!contract) {
-      return res.status(404).json({ error: 'Contract not found or not owned by this client' });
+      return res.status(404).json({ error: 'Contract not found' });
     }
 
     return res.json({ contract });
@@ -96,9 +74,37 @@ async function getContractById(req, res) {
   }
 }
 
+async function completeContract(req, res) {
+  try {
+    const clientId = req.user.id;
+    const { contractId } = req.params;
+    const contract = await contractService.clientCompleteContract(contractId, clientId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+    res.json({ contract });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
+async function confirmPayment(req, res) {
+  try {
+    const freelancerId = req.user.id;
+    const { contractId } = req.params;
+    const contract = await contractService.freelancerConfirmPayment(contractId, freelancerId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+    res.json({ contract });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
 module.exports = {
   createContract,
   updateContract,
   getAllContracts,
   getContractById,
+  completeContract,
+  confirmPayment,
 };

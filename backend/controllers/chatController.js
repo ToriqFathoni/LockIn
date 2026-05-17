@@ -1,4 +1,5 @@
 const chatService = require('../services/chatService');
+const projectService = require('../services/projectService');
 
 async function createConversation(req, res) {
   try {
@@ -14,6 +15,25 @@ async function createConversation(req, res) {
     }
 
     const conversation = await chatService.getOrCreateConversation(userId, other_user_id, job_id || null);
+
+    // If conversation is newly created (first time) and job_id exists, send template message
+    if (job_id && conversation) {
+      try {
+        const project = await projectService.getPublicProjectById(job_id);
+        if (project) {
+          const templateMessage = `Halo! 👋 Saya tertarik dengan pekerjaan "${project.title}". 
+
+Saya merasa memiliki kualifikasi dan pengalaman yang sesuai dengan kebutuhan Anda. Saya siap untuk mendiskusikan detail proyek dan memberikan solusi terbaik.
+
+Terima kasih atas perhatiannya!`;
+
+          await chatService.sendMessage(conversation.id, userId, templateMessage);
+        }
+      } catch (err) {
+        console.error('Error sending template message:', err);
+        // Continue even if template message fails
+      }
+    }
 
     return res.status(201).json({ conversation });
   } catch (err) {

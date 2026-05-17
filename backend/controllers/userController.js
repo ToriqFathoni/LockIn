@@ -54,7 +54,7 @@ async function login(req, res) {
     const user = await userService.findByEmail(email);
     if (!user) return res.status(401).json({ error: 'Email not found' });
 
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ error: 'Invalid password' });
 

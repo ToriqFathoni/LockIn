@@ -9,7 +9,7 @@ export type PageKey =
   | "manageJob";
 
 export interface ClientProfile {
-  id: number;
+  id: string | number;
   name: string;
   rating: number;
   verified: boolean;
@@ -17,7 +17,7 @@ export interface ClientProfile {
 }
 
 export interface Job {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   budget: string;

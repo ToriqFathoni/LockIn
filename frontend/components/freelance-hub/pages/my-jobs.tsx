@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { colors, mockJobs } from "../data";
-import { IconDollar } from "../icons";
 import { Button } from "../ui";
 import { useAuth } from "@/context/AuthContext";
 
@@ -12,17 +11,16 @@ export const MyJobsPage = () => {
   const router = useRouter();
   const { user, token } = useAuth();
   const [postedJobs, setPostedJobs] = useState<any[]>([]);
+  const [appliedJobs, setAppliedJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [hiredJobsState, setHiredJobsState] = useState<Record<string, boolean>>({});
-
-  const appliedJobs = mockJobs.slice(0, 2);
 
   useEffect(() => {
     setHiredJobsState(JSON.parse(localStorage.getItem("hiredDummyJobs") || "{}"));
   }, [activeTab]);
 
-  const fetchJobs = () => {
+  const fetchPostedJobs = () => {
     if (token) {
       setLoading(true);
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`, {
@@ -36,7 +34,7 @@ export const MyJobsPage = () => {
             const formatted = data.projects.map((p: any) => ({
               id: p.id,
               title: p.title,
-              budget: `Rp ${p.budget_min}`,
+              budget: `Rp ${p.budget_min?.toLocaleString('id-ID') || p.budget_min}`,
               client: { name: user?.name || "Anda" },
               skills: p.skills || [],
               duration: p.estimated_time || "-",
@@ -51,9 +49,56 @@ export const MyJobsPage = () => {
     }
   };
 
+  const fetchAppliedJobs = () => {
+    if (token) {
+      setLoading(true);
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/applied`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.projects) {
+            const formatted = data.projects
+              .filter((p: any) => {
+                // EXCLUDE self-posted jobs
+                if (p.client_id === user?.id) return false;
+                
+                // ONLY include jobs that have an active contract or are completed (on-going or done)
+                return p.contract_status === 'on_progress' || p.contract_status === 'completed';
+              })
+              .map((p: any) => {
+                // Status Mapping
+                let status = 'applied';
+                if (p.contract_status === 'completed') status = 'done';
+                else if (p.contract_status === 'on_progress') status = 'on-going';
+                else if (p.bid_status === 'rejected') status = 'reject';
+
+                return {
+                  id: p.id,
+                  title: p.title,
+                  budget: `Rp ${p.budget_min?.toLocaleString('id-ID') || p.budget_min}`,
+                  client: { name: p.client_name || "Unknown Client" },
+                  skills: p.skills || [],
+                  duration: p.estimated_time || "-",
+                  type: p.job_type,
+                  status: status,
+                };
+              });
+            setAppliedJobs(formatted);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "Posted Jobs") {
-      fetchJobs();
+      fetchPostedJobs();
+    } else {
+      fetchAppliedJobs();
     }
   }, [activeTab, token, user]);
 
@@ -74,7 +119,7 @@ export const MyJobsPage = () => {
 
         if (response.ok) {
           alert("Pekerjaan berhasil dihapus.");
-          fetchJobs();
+          fetchPostedJobs();
         } else {
           const errorData = await response.json();
           alert(`Gagal menghapus pekerjaan: ${errorData.error || "Kesalahan server"}`);
@@ -116,69 +161,87 @@ export const MyJobsPage = () => {
           displayJobs.map((job) => (
           <div
             key={job.id}
-            className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
-            onClick={() => router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`)}
+            className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer flex flex-col justify-between items-start gap-4"
+            onClick={() => router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : (job.status === "progress" || job.status === "completed" || hiredJobsState[job.id]) ? `/manage-job?job=${job.id}&role=client` : `/manage-applicants?job=${job.id}`)}
           >
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-slate-800 hover:text-[#8cbbed] transition-colors mb-2">{job.title}</h3>
-              <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500">
-                {activeTab === "Applied Jobs" ? (
-                  <span className="flex items-center gap-1 text-slate-700">
-                    <IconDollar /> {job.budget}
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-slate-700">
-                    {job.budget} <span className="text-slate-500 font-normal">({job.type === "Hourly" ? "Hourly Rate" : job.type})</span>
-                  </span>
-                )}
-                <span>•</span>
-                <span>{activeTab === "Applied Jobs" ? `Klien: ${job.client.name}` : `Diposting oleh: Anda`}</span>
-                <span>•</span>
-                <span className="text-slate-600">Estimasi Waktu: {job.duration}</span>
-                <span>•</span>
-                <span className={`${activeTab === "Posted Jobs" && hiredJobsState[job.id] ? "text-yellow-600" : "text-[#8cbbed]"} font-bold`}>
-                  Status: {activeTab === "Posted Jobs" && hiredJobsState[job.id] ? "In Progress" : job.status === "open" ? "Active" : job.status}
-                </span>
-              </div>
-              {activeTab === "Posted Jobs" && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="text-xs text-slate-500 font-bold mt-1">Skill Requirement:</span>
-                  {job.skills.map(skill => (
-                    <span key={skill} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">
-                      {skill}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-slate-800 hover:text-[#8cbbed] transition-colors mb-2">{job.title}</h3>
+                <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-500">
+                  {activeTab === "Applied Jobs" ? (
+                    <span className="flex items-center gap-1 text-slate-700">
+                      {job.budget}
                     </span>
-                  ))}
+                  ) : (
+                    <span className="flex items-center gap-1 text-slate-700">
+                      {job.budget} <span className="text-slate-500 font-normal">({job.type === "Hourly" ? "Hourly Rate" : job.type})</span>
+                    </span>
+                  )}
+                  <span>•</span>
+                  <span>{activeTab === "Applied Jobs" ? `Klien: ${job.client.name}` : `Diposting oleh: Anda`}</span>
+                  <span>•</span>
+                  <span className="text-slate-600">Estimasi Waktu: {job.duration}</span>
+                  <span>•</span>
+                  <span className={`${(activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed")) ? "text-yellow-600" : (job.status === "on-going" || job.status === "done") ? "text-green-500" : job.status === "reject" ? "text-red-500" : "text-[#8cbbed]"} font-bold uppercase`}>
+                    Status: {activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed") ? (job.status === "completed" ? "Completed" : "In Progress") : job.status === "open" ? "Active" : job.status.replace('-', ' ')}
+                  </span>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (activeTab === "Posted Jobs" && hiredJobsState[job.id]) {
-                    router.push(`/manage-job?job=${job.id}&role=client`);
-                  } else {
-                    router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
-                  }
-                }}
-              >
-                {activeTab === "Applied Jobs" ? "Lihat Pembayaran" : hiredJobsState[job.id] ? "Lihat Pembayaran" : "Lihat Detail"}
-              </Button>
-              {activeTab === "Posted Jobs" && job.status === "open" && !hiredJobsState[job.id] && (
+              <div className="flex flex-col gap-2 min-w-[140px]">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-red-200 text-red-600 hover:bg-red-50"
-                  disabled={isDeleting}
-                  onClick={(e) => handleDeleteJob(e, job.id)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed")) {
+                      router.push(`/manage-job?job=${job.id}&role=client`);
+                    } else {
+                      router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
+                    }
+                  }}
                 >
-                  {isDeleting ? "Menghapus..." : "Hapus Pekerjaan"}
+                  {(activeTab === "Applied Jobs" && (job.status === "on-going" || job.status === "done")) ? "Lihat di My Jobs" : activeTab === "Applied Jobs" ? "Lihat Pembayaran" : (activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed")) ? "Kelola Proyek" : "Lihat Detail"}
                 </Button>
-              )}
+                {activeTab === "Posted Jobs" && job.status === "open" && !hiredJobsState[job.id] && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 text-red-600 hover:bg-red-50"
+                    disabled={isDeleting}
+                    onClick={(e) => handleDeleteJob(e, job.id)}
+                  >
+                    {isDeleting ? "Menghapus..." : "Hapus Pekerjaan"}
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {/* Status Messages for Freelancer */}
+            {activeTab === "Applied Jobs" && (
+              <div className="w-full pt-4 mt-2 border-t border-slate-100">
+                {job.status === "on-going" && (
+                  <p className="text-sm text-slate-500 font-medium">
+                    Pekerjaan sedang berjalan! Lihat di tab My Jobs untuk info lebih detail.
+                  </p>
+                )}
+                {job.status === "done" && (
+                  <p className="text-sm text-green-600 font-medium">
+                    ✅ Pekerjaan telah selesai! Lihat di tab My Jobs untuk info lebih detail.
+                  </p>
+                )}
+                {job.status === "reject" && (
+                  <p className="text-sm text-red-500 font-medium italic">
+                    "Lamaranmu masih belum diterima, sepertinya kamu belum cocok di pekerjaan ini. Tetap semangat mencari peluang lain ya!"
+                  </p>
+                )}
+                {job.status === "applied" && (
+                  <p className="text-sm text-slate-500">
+                    Lamaran Anda sedang ditinjau oleh klien.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )))}
       </div>
