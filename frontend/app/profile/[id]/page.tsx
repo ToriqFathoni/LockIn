@@ -1,5 +1,5 @@
 import { FreelanceHubShell } from "@/components/freelance-hub/site-shell";
-import { ProfilePage } from "@/components/freelance-hub/pages";
+import { ProfilePage } from "@/app/profile/page";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

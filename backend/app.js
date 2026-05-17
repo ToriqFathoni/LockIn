@@ -45,7 +45,8 @@ app.use((err, req, res, next) => {
     });
   }
 
-  return next(err);
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 app.listen(PORT, () => {

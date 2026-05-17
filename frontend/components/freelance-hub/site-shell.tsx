@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Navbar } from "./pages";
+import { Navbar } from "@/components/layout/navbar";
 
 export function FreelanceHubShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
