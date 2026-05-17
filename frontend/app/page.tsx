@@ -4,13 +4,31 @@ import { useRouter } from "next/navigation";
 import { colors } from "@/components/freelance-hub/data";
 import { IconCheckCircle, IconShieldCheck, IconStar, IconWallet } from "@/components/freelance-hub/icons";
 import { Button } from "@/components/ui";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
   const router = useRouter();
+  const { token } = useAuth();
+
+  const handleFindTalent = () => {
+    if (token) {
+      router.push("/home");
+    } else {
+      router.push("/login");
+    }
+  };
+
+  const handleFindWork = () => {
+    if (token) {
+      router.push("/home");
+    } else {
+      router.push("/login");
+    }
+  };
 
   return (
-    <div className="min-h-screen pt-20 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-32 flex flex-col lg:flex-row items-center gap-12">
+    <div className="min-h-screen pt-4 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 lg:pt-16 flex flex-col lg:flex-row items-center gap-12">
         <div className="lg:w-1/2 flex flex-col items-start text-left z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 bg-white shadow-sm border border-slate-100 animate-fade-in-up">
             <span className="flex h-2 w-2 rounded-full bg-green-500" />
@@ -29,8 +47,8 @@ export default function Home() {
             Connect with top-tier professionals across the globe. From development to design, get your projects done faster and better.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <Button size="lg" onClick={() => router.push("/home")}>Find Talent</Button>
-            <Button size="lg" variant="outline" onClick={() => router.push("/home")}>Find Work</Button>
+            <Button size="lg" onClick={handleFindTalent}>Find Talent</Button>
+            <Button size="lg" variant="outline" onClick={handleFindWork}>Find Work</Button>
           </div>
         </div>
 
