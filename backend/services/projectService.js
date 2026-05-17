@@ -99,9 +99,11 @@ async function getAllPublicProjects() {
 async function getPublicProjectById(projectId) {
   const result = await db.query(
       `SELECT p.*, 
-              u.id AS client_id, u.name AS client_name, u.email AS client_email, u.location AS client_location
+              u.id AS client_id, u.name AS client_name, u.email AS client_email, u.location AS client_location,
+              COALESCE(fp.avatar_url, u.profile_picture) as client_avatar
        FROM projects p
        LEFT JOIN users u ON u.id = p.client_id
+       LEFT JOIN freelancer_profiles fp ON fp.freelancer_id = u.id
        WHERE p.id = $1 AND p.status = 'open'`,
     [projectId]
   );
@@ -118,6 +120,7 @@ async function getPublicProjectById(projectId) {
         rating: 4.8,
       verified: true, // default verified
         location: row.client_location || 'Remote',
+        avatar: row.client_avatar || null,
     }
   };
 }
@@ -152,9 +155,11 @@ async function getProjectDetailsForFreelancer(freelancerId, projectId) {
         u.name as client_name,
         u.email as client_email,
         u.location as client_location,
+        COALESCE(fp.avatar_url, u.profile_picture) as client_avatar,
         cv.id as conversation_id
      FROM projects p
      JOIN users u ON u.id = p.client_id
+     LEFT JOIN freelancer_profiles fp ON fp.freelancer_id = u.id
      LEFT JOIN bids b ON b.project_id = p.id AND b.freelancer_id = $1
      LEFT JOIN contracts c ON c.project_id = p.id AND c.freelancer_id = $1
      LEFT JOIN conversations cv ON cv.job_id = p.id AND (cv.user_1_id = $1 OR cv.user_2_id = $1)
@@ -179,6 +184,7 @@ async function getProjectDetailsForFreelancer(freelancerId, projectId) {
       rating: 4.8,
       verified: true,
       location: row.client_location || 'Remote',
+      avatar: row.client_avatar || null,
     }
   };
 }

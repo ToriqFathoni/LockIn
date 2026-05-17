@@ -117,7 +117,7 @@ async function getBidsByProject(projectId) {
         COALESCE(u.name, ma.freelancer_name) as freelancer_name,
         COALESCE(fp.bio, ma.freelancer_bio) as freelancer_bio,
         COALESCE(fp.skills, ma.freelancer_skills) as freelancer_skills,
-        u.profile_picture as profile_picture,
+        COALESCE(fp.avatar_url, u.profile_picture) as profile_picture,
         (CASE WHEN b.id IS NULL THEN TRUE ELSE FALSE END) as is_message_only
     FROM bids b
     FULL OUTER JOIN message_applicants ma ON b.project_id = ma.job_id AND b.freelancer_id = ma.freelancer_id
