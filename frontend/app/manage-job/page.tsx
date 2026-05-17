@@ -87,9 +87,18 @@ function ManageJobContent() {
     try {
       const formData = new FormData();
       formData.append("file", paymentProofFile);
-      formData.append("upload_preset", "bukti_pembayaran");
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
-      const uploadRes = await fetch("https://api.cloudinary.com/v1_1/dq8lsonxz/image/upload", {
+      if (!cloudName || !uploadPreset) {
+        alert("Konfigurasi Cloudinary belum diatur.");
+        setActionLoading(false);
+        return;
+      }
+
+      formData.append("upload_preset", uploadPreset);
+
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: "POST",
         body: formData,
       });
