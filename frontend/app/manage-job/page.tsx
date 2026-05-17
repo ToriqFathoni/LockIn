@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IconCheckCircle, IconClock, IconFileText, IconMapPin, IconReceipt, IconShieldCheck, IconUpload, IconUser } from "@/components/freelance-hub/icons";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 
-export default function Page() {
+function ManageJobContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job");
@@ -339,4 +339,12 @@ export default function Page() {
       )}
     </div>
   );
-};
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="p-20 text-center">Memuat halaman...</div>}>
+      <ManageJobContent />
+    </Suspense>
+  );
+}

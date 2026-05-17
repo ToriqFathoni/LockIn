@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 
-export default function Page() {
+function ManageApplicantsContent() {
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job");
   const router = useRouter();
@@ -370,4 +370,12 @@ export default function Page() {
       )}
     </div>
   );
-};
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="text-center py-10">Memuat halaman...</div>}>
+      <ManageApplicantsContent />
+    </Suspense>
+  );
+}
