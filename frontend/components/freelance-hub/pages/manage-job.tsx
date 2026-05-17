@@ -27,7 +27,6 @@ export const ManageJobPage = () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
         
-        // 1. Fetch Contract
         const contractRes = await fetch(`${apiUrl}/contracts`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -35,7 +34,6 @@ export const ManageJobPage = () => {
         const foundContract = contractData.contracts?.find((c: any) => String(c.project_id) === String(jobId));
         setContract(foundContract || null);
 
-        // 2. Fetch Project
         const projectRes = await fetch(`${apiUrl}/projects/${jobId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -43,7 +41,6 @@ export const ManageJobPage = () => {
         const actualProject = projectData.project || projectData;
         setProject(actualProject);
 
-        // 3. Determine Counterparty Info
         if (role === "client") {
            const bidsRes = await fetch(`${apiUrl}/bids/project/${jobId}`, {
              headers: { Authorization: `Bearer ${token}` }
@@ -75,23 +72,52 @@ export const ManageJobPage = () => {
     loadData();
   }, [token, jobId, role]);
 
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+
   const handleCompleteWork = async () => {
     if (!token || !contract) return;
+    if (!paymentProofFile) {
+      alert("Harap unggah bukti pembayaran terlebih dahulu.");
+      return;
+    }
+
     setActionLoading(true);
     try {
+      const formData = new FormData();
+      formData.append("file", paymentProofFile);
+      formData.append("upload_preset", "bukti_pembayaran");
+
+      const uploadRes = await fetch("https://api.cloudinary.com/v1_1/dq8lsonxz/image/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Gagal mengunggah bukti pembayaran.");
+      }
+
+      const uploadData = await uploadRes.json();
+      const imageUrl = uploadData.secure_url;
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const res = await fetch(`${apiUrl}/contracts/${contract.id}/complete`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ paymentProofUrl: imageUrl })
       });
+      
       if (res.ok) {
         const data = await res.json();
         setContract(data.contract);
       } else {
         alert("Gagal mengonfirmasi penyelesaian.");
       }
-    } catch (err) {
-      alert("Terjadi kesalahan jaringan.");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Terjadi kesalahan jaringan.");
     } finally {
       setActionLoading(false);
     }
@@ -156,11 +182,26 @@ export const ManageJobPage = () => {
             <IconCheckCircle />
           </div>
           <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Proyek Telah Diselesaikan!</h2>
-          <p className="text-slate-600 mb-8 max-w-md mx-auto">
+          <p className="text-slate-600 mb-6 max-w-md mx-auto">
             {role === "client"
               ? "Terima kasih. Seluruh pembayaran telah dikonfirmasi dan proyek ini ditutup. Anda dapat memberikan ulasan untuk freelancer."
               : "Selamat! Klien telah menandai pekerjaan selesai. Dana telah masuk ke pendapatan Anda."}
           </p>
+          
+          {contract?.payment_proof && (
+            <div className="mb-8 p-4 bg-slate-50 rounded-2xl inline-block border border-slate-100">
+              <p className="text-sm font-semibold text-slate-700 mb-2">Ref. Pembayaran Anda</p>
+              <a 
+                href={contract.payment_proof} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold transition-colors"
+               >
+                <IconFileText /> Lihat Bukti Pembayaran
+              </a>
+            </div>
+          )}
+
           <div className="flex justify-center gap-4">
             <Button variant="primary" onClick={() => router.push("/home")}>Kembali ke Beranda</Button>
           </div>
@@ -179,6 +220,19 @@ export const ManageJobPage = () => {
                   <p className="text-xs text-slate-500 font-semibold mb-1">Nominal Pembayaran</p>
                   <p className="text-lg font-black text-[#8cbbed]">Rp {Number(contract.agreed_amount).toLocaleString('id-ID')}</p>
                 </div>
+                {contract.payment_proof && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold mb-1">Bukti Pembayaran</p>
+                    <a 
+                      href={contract.payment_proof} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm font-bold text-blue-500 hover:underline flex items-center gap-1"
+                    >
+                      <IconFileText /> Lihat Bukti
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -205,12 +259,29 @@ export const ManageJobPage = () => {
                         <h4 className="font-bold text-slate-800 text-xl mb-2">Proyek Sedang Berjalan</h4>
                         <p className="text-slate-600 mb-6 text-sm">Freelancer sedang mengerjakan proyek ini. Jika seluruh pekerjaan telah selesai, silakan konfirmasi untuk memproses pembayaran.</p>
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                          <p className="text-sm font-semibold text-slate-800 mb-4">Apakah seluruh target pekerjaan telah terpenuhi?</p>
+                          <p className="text-sm font-semibold text-slate-800 mb-4">Apakah seluruh target pekerjaan telah terpenuhi? Unggah bukti pembayaran.</p>
+                          
+                          <div className="mb-4 text-left">
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Bukti Pembayaran (Wajib)</label>
+                            <div className="relative border-2 border-dashed border-slate-300 rounded-xl bg-white hover:bg-slate-50 transition-colors p-4 flex flex-col items-center justify-center gap-2">
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => setPaymentProofFile(e.target.files ? e.target.files[0] : null)}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                              <IconUpload className="w-6 h-6 text-slate-400" />
+                              <span className="text-sm text-slate-600 font-medium">
+                                {paymentProofFile ? paymentProofFile.name : "Klik atau seret gambar ke sini"}
+                              </span>
+                            </div>
+                          </div>
+
                           <Button 
                             variant="primary" 
                             className="w-full bg-green-500 shadow-green-500/30" 
                             onClick={handleCompleteWork}
-                            disabled={actionLoading}
+                            disabled={actionLoading || !paymentProofFile}
                           >
                             {actionLoading ? "Memproses..." : "Selesaikan Pekerjaan (Kirim Pembayaran)"}
                           </Button>

@@ -24,7 +24,6 @@ export const ManageApplicantsPage = () => {
       setLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       
-      // Fetch Job Details
       fetch(`${apiUrl}/projects/${jobId}`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -40,7 +39,6 @@ export const ManageApplicantsPage = () => {
       })
       .catch(console.error);
 
-      // Fetch Applicants (Bids)
       fetch(`${apiUrl}/bids/project/${jobId}`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -56,7 +54,7 @@ export const ManageApplicantsPage = () => {
             avatar: bid.profile_picture || null,
             coverLetter: bid.cover_letter || "Tidak ada pesan tambahan.",
             skills: Array.isArray(bid.freelancer_skills) ? bid.freelancer_skills : [],
-            status: bid.status === 'pending' ? 'PENDING' : bid.status === 'accepted' ? 'HIRED' : 'REJECTED',
+            status: bid.status === 'pending' ? 'PENDING' : bid.status === 'accepted' ? 'HIRED' : bid.status === 'withdrawn' || bid.status === 'completed' ? 'COMPLETED' : 'REJECTED',
             isMessageOnly: bid.is_message_only
           }));
           setApplicants(formattedApplicants);
@@ -79,7 +77,6 @@ export const ManageApplicantsPage = () => {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       let finalBidId = selectedApplicant;
 
-      // If it's a message-only applicant, create a formal bid first
       if (selectedApplicant.startsWith('msg-')) {
         const freelancerId = selectedApplicant.replace('msg-', '');
         const bidResponse = await fetch(`${apiUrl}/bids`, {
@@ -88,12 +85,9 @@ export const ManageApplicantsPage = () => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-          // Note: We're acting as the client here, but normally freelancers create bids.
-          // However, for this flow, we'll allow creating a bid on behalf of the application.
-          // In a real app, you might want a specialized endpoint.
           body: JSON.stringify({ 
             project_id: jobId, 
-            freelancer_id: freelancerId, // We need to support this in the backend
+            freelancer_id: freelancerId, 
             bid_amount: jobDetail.budget_min || 0,
             cover_letter: "Accepted from conversation."
           })
@@ -179,7 +173,6 @@ export const ManageApplicantsPage = () => {
         
         let finalBidId = applicantId;
         
-        // If message-only, we create a bid with rejected status
         if (applicantId.startsWith('msg-')) {
           const freelancerId = applicantId.split('-')[1];
           const bidResponse = await fetch(`${apiUrl}/bids`, {
@@ -316,7 +309,7 @@ export const ManageApplicantsPage = () => {
 
       <div>
         <h2 className="text-xl font-bold text-slate-700 mb-4 border-b border-slate-200 pb-2">
-          {jobDetail.status === 'progress' ? "Freelancer Terpilih" : "Daftar Pelamar"}
+          {jobDetail.status === 'progress' || jobDetail.status === 'closed' ? "Freelancer Terpilih" : "Daftar Pelamar"}
         </h2>
         <div className="space-y-4">
           {applicants.length === 0 ? (
@@ -325,9 +318,9 @@ export const ManageApplicantsPage = () => {
             </div>
           ) : (
             applicants
-              .filter(a => jobDetail.status !== 'progress' || a.status === 'HIRED')
+              .filter(a => (jobDetail.status !== 'progress' && jobDetail.status !== 'closed') || a.status === 'HIRED' || a.status === 'COMPLETED')
               .map(applicant => (
-            <div key={applicant.id} className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border ${applicant.status === "HIRED" ? "border-green-400 bg-green-50" : applicant.status === "REJECTED" ? "border-slate-200 opacity-60" : "border-slate-200"} flex flex-col md:flex-row gap-6 items-start md:items-center`}>
+            <div key={applicant.id} className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border ${applicant.status === "HIRED" ? "border-green-400 bg-green-50" : applicant.status === "COMPLETED" ? "border-blue-400 bg-blue-50" : applicant.status === "REJECTED" ? "border-slate-200 opacity-60" : "border-slate-200"} flex flex-col md:flex-row gap-6 items-start md:items-center`}>
               {applicant.avatar ? (
                 <img src={applicant.avatar} alt={applicant.name} className="w-16 h-16 rounded-full object-cover shadow-sm border border-slate-100" />
               ) : (
@@ -339,6 +332,7 @@ export const ManageApplicantsPage = () => {
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-bold text-slate-800">{applicant.name}</h3>
                   {applicant.status === "HIRED" && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">Diterima</span>}
+                  {applicant.status === "COMPLETED" && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-bold">Pekerjaan Selesai</span>}
                   {applicant.status === "REJECTED" && <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-bold">Ditolak</span>}
                 </div>
                 <p className="text-slate-600 text-sm mt-1">{applicant.coverLetter}</p>

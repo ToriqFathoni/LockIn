@@ -58,14 +58,13 @@ async function createContractForClient(clientId, payload) {
       `INSERT INTO contracts (bid_id, project_id, client_id, freelancer_id, agreed_amount, started_at, ended_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [bid_id, bid.project_id, clientId, bid.freelancer_id, bid.bid_amount, started_at, ended_at]
+      [bid_id, bid.project_id, clientId, bid.freelancer_id, project.budget_max, started_at, ended_at]
     );
 
     const contract = result.rows[0];
 
     await client.query('UPDATE bids SET status = $1 WHERE id = $2', ['accepted', bid_id]);
 
-    // Update project status to 'progress' instead of 'closed' for active projects
     await client.query('UPDATE projects SET status = $1 WHERE id = $2', ['progress', bid.project_id]);
 
     await client.query('COMMIT');
@@ -155,13 +154,14 @@ async function getAllContracts(userId) {
   return result.rows;
 }
 
-async function clientCompleteContract(contractId, clientId) {
+async function clientCompleteContract(contractId, clientId, paymentProofUrl = null) {
   const result = await db.query(
     `UPDATE contracts 
-     SET client_confirmed_at = CURRENT_TIMESTAMP 
+     SET client_confirmed_at = CURRENT_TIMESTAMP,
+         payment_proof = COALESCE($3, payment_proof)
      WHERE id = $1 AND client_id = $2 
      RETURNING *`,
-    [contractId, clientId]
+    [contractId, clientId, paymentProofUrl]
   );
   return result.rows[0] || null;
 }

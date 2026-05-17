@@ -31,7 +31,9 @@ export const MyJobsPage = () => {
         .then((res) => res.json())
         .then((data) => {
           if (data.projects) {
-            const formatted = data.projects.map((p: any) => ({
+            const formatted = data.projects
+              .filter((p: any) => p.status !== 'canceled')  
+              .map((p: any) => ({
               id: p.id,
               title: p.title,
               budget: `Rp ${p.budget_min?.toLocaleString('id-ID') || p.budget_min}`,
@@ -62,14 +64,11 @@ export const MyJobsPage = () => {
           if (data.projects) {
             const formatted = data.projects
               .filter((p: any) => {
-                // EXCLUDE self-posted jobs
                 if (p.client_id === user?.id) return false;
                 
-                // ONLY include jobs that have an active contract or are completed (on-going or done)
                 return p.contract_status === 'on_progress' || p.contract_status === 'completed';
               })
               .map((p: any) => {
-                // Status Mapping
                 let status = 'applied';
                 if (p.contract_status === 'completed') status = 'done';
                 else if (p.contract_status === 'on_progress') status = 'on-going';
@@ -162,7 +161,7 @@ export const MyJobsPage = () => {
           <div
             key={job.id}
             className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer flex flex-col justify-between items-start gap-4"
-            onClick={() => router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : (job.status === "progress" || job.status === "completed" || hiredJobsState[job.id]) ? `/manage-job?job=${job.id}&role=client` : `/manage-applicants?job=${job.id}`)}
+            onClick={() => router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : (job.status === "progress" || hiredJobsState[job.id]) ? `/manage-job?job=${job.id}&role=client` : `/manage-applicants?job=${job.id}`)}
           >
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4">
               <div className="flex-1">
@@ -182,37 +181,74 @@ export const MyJobsPage = () => {
                   <span>•</span>
                   <span className="text-slate-600">Estimasi Waktu: {job.duration}</span>
                   <span>•</span>
-                  <span className={`${(activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed")) ? "text-yellow-600" : (job.status === "on-going" || job.status === "done") ? "text-green-500" : job.status === "reject" ? "text-red-500" : "text-[#8cbbed]"} font-bold uppercase`}>
-                    Status: {activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed") ? (job.status === "completed" ? "Completed" : "In Progress") : job.status === "open" ? "Active" : job.status.replace('-', ' ')}
+                  <span className={`${(activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "closed")) ? "text-yellow-600" : (job.status === "on-going" || job.status === "done") ? "text-green-500" : job.status === "reject" ? "text-red-500" : "text-[#8cbbed]"} font-bold uppercase`}>
+                    Status: {activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "closed") ? (job.status === "closed" ? "Completed" : "In Progress") : job.status === "open" ? "Active" : job.status.replace('-', ' ')}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2 min-w-[140px]">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed")) {
-                      router.push(`/manage-job?job=${job.id}&role=client`);
-                    } else {
-                      router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
-                    }
-                  }}
-                >
-                  {(activeTab === "Applied Jobs" && (job.status === "on-going" || job.status === "done")) ? "Lihat di My Jobs" : activeTab === "Applied Jobs" ? "Lihat Pembayaran" : (activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress" || job.status === "completed")) ? "Kelola Proyek" : "Lihat Detail"}
-                </Button>
-                {activeTab === "Posted Jobs" && job.status === "open" && !hiredJobsState[job.id] && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-red-200 text-red-600 hover:bg-red-50"
-                    disabled={isDeleting}
-                    onClick={(e) => handleDeleteJob(e, job.id)}
-                  >
-                    {isDeleting ? "Menghapus..." : "Hapus Pekerjaan"}
-                  </Button>
+                {activeTab === "Posted Jobs" && job.status === "closed" ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        router.push(`/manage-applicants?job=${job.id}`);
+                      }}
+                    >
+                      Lihat Pelamar (Detail)
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="bg-[#8cbbed] hover:bg-blue-400"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        router.push(`/manage-job?job=${job.id}&role=client`);
+                      }}
+                    >
+                      Bukti Pembayaran
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                      disabled={isDeleting}
+                      onClick={(e) => handleDeleteJob(e, job.id)}
+                    >
+                      {isDeleting ? "Menghapus..." : "Hapus Pekerjaan"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress")) {
+                          router.push(`/manage-job?job=${job.id}&role=client`);
+                        } else {
+                          router.push(activeTab === "Applied Jobs" ? `/manage-job?job=${job.id}&role=freelancer` : `/manage-applicants?job=${job.id}`);
+                        }
+                      }}
+                    >
+                      {(activeTab === "Applied Jobs" && (job.status === "on-going" || job.status === "done")) ? "Bukti Pembayaran" : activeTab === "Applied Jobs" ? "Lihat Pembayaran" : (activeTab === "Posted Jobs" && (hiredJobsState[job.id] || job.status === "progress")) ? "Kelola Proyek" : "Lihat Detail"}
+                    </Button>
+                    {activeTab === "Posted Jobs" && job.status === "open" && !hiredJobsState[job.id] && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-200 text-red-600 hover:bg-red-50"
+                        disabled={isDeleting}
+                        onClick={(e) => handleDeleteJob(e, job.id)}
+                      >
+                        {isDeleting ? "Menghapus..." : "Hapus Pekerjaan"}
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -227,7 +263,7 @@ export const MyJobsPage = () => {
                 )}
                 {job.status === "done" && (
                   <p className="text-sm text-green-600 font-medium">
-                    ✅ Pekerjaan telah selesai! Lihat di tab My Jobs untuk info lebih detail.
+                    Pekerjaan telah selesai! Lihat di tab My Jobs untuk info lebih detail.
                   </p>
                 )}
                 {job.status === "reject" && (

@@ -2,10 +2,8 @@ const db = require('../database');
 
 async function runMigrations() {
   try {
-    // 0. Enable UUID extension
     await db.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-    // 1. Create users table with UUID primary key
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -20,7 +18,6 @@ async function runMigrations() {
       )
     `);
 
-    // 2. Create freelancer_profiles table
     await db.query(`
       CREATE TABLE IF NOT EXISTS freelancer_profiles (
         id SERIAL PRIMARY KEY,
@@ -42,8 +39,12 @@ async function runMigrations() {
       ADD COLUMN IF NOT EXISTS estimated_time TEXT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT NULL
     `);
+
+    await db.query(`
+      ALTER TABLE contracts
+      ADD COLUMN IF NOT EXISTS payment_proof TEXT DEFAULT NULL
+    `);
     
-    // Ensure the 'canceled' status is available in the ENUM if it exists
     await db.query(`
       DO $$
       BEGIN
@@ -53,17 +54,14 @@ async function runMigrations() {
       END
       $$;
     `).catch(e => {
-      // Ignore if ENUM value already exists, happens on repeated runs
       if (e.code !== '42710') throw e; 
     });
 
     console.log('Migration: users, freelancer_profiles, and projects columns ensured.');
 
-    // 3. Drop existing chat tables to recreate with correct schema
     await db.query(`DROP TABLE IF EXISTS messages CASCADE`);
     await db.query(`DROP TABLE IF EXISTS conversations CASCADE`);
 
-    // 4. Create conversations table with UUID foreign keys
     await db.query(`
       CREATE TABLE IF NOT EXISTS conversations (
         id SERIAL PRIMARY KEY,
@@ -77,7 +75,6 @@ async function runMigrations() {
       )
     `);
 
-    // 5. Create messages table with UUID sender_id
     await db.query(`
       CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
@@ -88,7 +85,6 @@ async function runMigrations() {
       )
     `);
 
-    // 6. Add job_id FK to conversations if projects table exists
     try {
       const projectsExist = await db.query(`
         SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'projects')
@@ -100,14 +96,12 @@ async function runMigrations() {
           ADD CONSTRAINT conversations_job_id_fkey
           FOREIGN KEY (job_id) REFERENCES projects(id) ON DELETE SET NULL
         `).catch(() => {
-          // Constraint may already exist, ignore
         });
       }
     } catch (e) {
       console.log('⚠️  Note: job_id FK might not be applicable (projects table may not exist)');
     }
 
-    // 8. Create saved_jobs table for bookmarking/favoriting jobs
     await db.query(`
       CREATE TABLE IF NOT EXISTS saved_jobs (
         id SERIAL PRIMARY KEY,
@@ -118,7 +112,6 @@ async function runMigrations() {
       )
     `);
 
-    // Add foreign key constraint for project_id if projects table exists
     try {
       const projectsExist = await db.query(`
         SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'projects')
@@ -130,14 +123,12 @@ async function runMigrations() {
           ADD CONSTRAINT saved_jobs_project_id_fkey
           FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         `).catch(() => {
-          // Constraint may already exist, ignore
         });
       }
     } catch (e) {
       console.log('⚠️  Note: project_id FK might not be applicable (projects table may not exist yet)');
     }
 
-    // 7. Create indexes for performance
     await db.query(`CREATE INDEX IF NOT EXISTS idx_conversations_user_1_id ON conversations(user_1_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_conversations_user_2_id ON conversations(user_2_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)`);

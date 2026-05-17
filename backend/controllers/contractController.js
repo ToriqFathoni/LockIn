@@ -78,7 +78,9 @@ async function completeContract(req, res) {
   try {
     const clientId = req.user.id;
     const { contractId } = req.params;
-    const contract = await contractService.clientCompleteContract(contractId, clientId);
+    const { paymentProofUrl } = req.body;
+    
+    const contract = await contractService.clientCompleteContract(contractId, clientId, paymentProofUrl);
     if (!contract) return res.status(404).json({ error: "Contract not found" });
     res.json({ contract });
   } catch (err) {
