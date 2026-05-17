@@ -70,7 +70,14 @@ async function getProfileDetails(freelancerId) {
       u.email AS user_email,
       u.phone AS user_phone,
       u.location AS user_location,
-      u.role AS user_role
+      u.role AS user_role,
+      COALESCE((
+        SELECT SUM(c.agreed_amount)
+        FROM contracts c
+        WHERE c.freelancer_id = $1
+          AND c.status = 'completed'
+          AND c.freelancer_confirmed_at IS NOT NULL
+      ), 0) AS total_earned
     FROM users u
     LEFT JOIN freelancer_profiles fp ON u.id = fp.freelancer_id
     WHERE u.id = $1`,

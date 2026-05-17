@@ -26,6 +26,7 @@ type ProfileRecord = {
   total_earned?: string | number | null;
   avg_rating?: number | string | null;
   total_reviews?: number | string | null;
+  avatar_url?: string | null;
 };
 
 const splitList = (value: string) =>
@@ -364,7 +365,7 @@ export const ProfilePage = ({ freelancerId }: ProfilePageProps = {}) => {
             <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
               <label htmlFor="profile-avatar" className="relative group cursor-pointer block">
                 {avatarPreview || displayProfile.avatar ? (
-                  <img src={avatarPreview || displayProfile.avatar} alt="Profile" className="w-24 h-24 rounded-full object-cover shadow-md" />
+                  <img src={avatarPreview || displayProfile.avatar || undefined} alt="Profile" className="w-24 h-24 rounded-full object-cover shadow-md" />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-[#8cbbed] text-white flex items-center justify-center font-bold text-3xl shadow-md">
                     {displayProfile.name.charAt(0)}
@@ -499,18 +500,18 @@ export const ProfilePage = ({ freelancerId }: ProfilePageProps = {}) => {
             </div>
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-green-50 text-green-500 flex items-center justify-center"><IconTrophy /></div>
-              <div><p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Earned</p><p className="text-xl font-black text-slate-800">{displayProfile.totalEarned}</p></div>
+              <div><p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Earned</p><p className="text-xl font-semibold text-slate-800">{displayProfile.totalEarned}</p></div>
             </div>
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center"><IconBriefcase /></div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">CV</p>
                 {displayProfile.cvFileData ? (
-                  <a href={displayProfile.cvFileData} download={displayProfile.cvFileName} className="text-lg font-black text-[#8cbbed] hover:underline truncate cursor-pointer block">
+                  <a href={displayProfile.cvFileData} download={displayProfile.cvFileName} className="text-sm font-semibold text-[#8cbbed] hover:underline truncate cursor-pointer block">
                     {displayProfile.cvFileName}
                   </a>
                 ) : (
-                  <p className="text-lg font-black text-slate-800 truncate">{displayProfile.cvFileName}</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">{displayProfile.cvFileName}</p>
                 )}
               </div>
             </div>

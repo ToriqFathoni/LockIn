@@ -88,7 +88,7 @@ export const ManageApplicantsPage = () => {
           body: JSON.stringify({ 
             project_id: jobId, 
             freelancer_id: freelancerId, 
-            bid_amount: jobDetail.budget_min || 0,
+            bid_amount: jobDetail.budget_max || jobDetail.budget_min || 0,
             cover_letter: "Accepted from conversation."
           })
         });

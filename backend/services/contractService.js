@@ -58,7 +58,7 @@ async function createContractForClient(clientId, payload) {
       `INSERT INTO contracts (bid_id, project_id, client_id, freelancer_id, agreed_amount, started_at, ended_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [bid_id, bid.project_id, clientId, bid.freelancer_id, project.budget_max, started_at, ended_at]
+      [bid_id, bid.project_id, clientId, bid.freelancer_id, bid.bid_amount, started_at, ended_at]
     );
 
     const contract = result.rows[0];
