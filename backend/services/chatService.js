@@ -40,11 +40,13 @@ async function getConversationsByUserId(userId) {
         (CASE WHEN c.user_1_id = $1 THEN c.user_2_id ELSE c.user_1_id END) as other_user_id,
         u.name as other_user_name,
         u.email as other_user_email,
+        fp.avatar_url as other_user_avatar,
         (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count,
         (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_time
        FROM conversations c
        JOIN users u ON (CASE WHEN c.user_1_id = $1 THEN c.user_2_id ELSE c.user_1_id END) = u.id
+       LEFT JOIN freelancer_profiles fp ON u.id = fp.freelancer_id
        WHERE c.user_1_id = $1 OR c.user_2_id = $1
        ORDER BY c.updated_at DESC`,
       [userId]

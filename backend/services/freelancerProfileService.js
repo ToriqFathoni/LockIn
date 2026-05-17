@@ -71,9 +71,9 @@ async function getProfileDetails(freelancerId) {
       u.phone AS user_phone,
       u.location AS user_location,
       u.role AS user_role
-    FROM freelancer_profiles fp
-    JOIN users u ON u.id = fp.freelancer_id
-    WHERE fp.freelancer_id = $1`,
+    FROM users u
+    LEFT JOIN freelancer_profiles fp ON u.id = fp.freelancer_id
+    WHERE u.id = $1`,
     [freelancerId]
   );
 

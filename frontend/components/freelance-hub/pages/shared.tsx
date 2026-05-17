@@ -80,8 +80,26 @@ const navItems = [
 export const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const isLanding = pathname === "/";
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && token) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/freelancer-profile/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.profile?.avatar_url) {
+          setAvatarUrl(data.profile.avatar_url);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch avatar:", err));
+    }
+  }, [user, token, pathname]); // Re-fetch occasionally or on path change to capture updates
 
   const filteredNavItems = navItems;
 
@@ -121,8 +139,14 @@ export const Navbar = () => {
                 <Button variant="ghost" onClick={() => router.push("/home")} className="hidden sm:flex">Find Work</Button>
               )}
               <div className="relative group">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold cursor-pointer shadow-md border-2 border-white hover:ring-2 transition-all" style={{ backgroundColor: colors.primary }} onClick={() => router.push("/profile")}>
-                  {user.name.charAt(0).toUpperCase()}
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold cursor-pointer shadow-md border-2 border-white hover:ring-2 transition-all overflow-hidden" style={{ backgroundColor: colors.primary }} onClick={() => router.push("/profile")}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-lg border border-slate-100 p-2 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <p className="px-3 py-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">{user.name}</p>
@@ -925,7 +949,16 @@ export const HomePage = () => {
               <h4 className="font-bold text-slate-800 mb-4">About the Client</h4>
               <div className="space-y-4">
                 <div>
-                  <p className="font-semibold text-slate-800">{clientName}</p>
+                  <p 
+                    className="font-semibold text-[#8cbbed] hover:text-[#7aaad9] cursor-pointer transition-colors"
+                    onClick={() => {
+                      if (job?.client?.id) {
+                        router.push(`/profile/${job.client.id}`);
+                      }
+                    }}
+                  >
+                    {clientName}
+                  </p>
                   <div className="flex items-center gap-2 mt-1">
                     <Rating score={clientRating} />
                     <span className="text-xs text-slate-500">(12 reviews)</span>

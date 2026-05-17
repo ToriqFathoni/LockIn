@@ -224,7 +224,11 @@ export const MessagesPage = () => {
                   className={`w-full text-left p-4 border-b border-slate-100 hover:bg-white cursor-pointer transition-colors border-l-4 ${isActive ? "bg-white border-l-[#8cbbed]" : "border-l-transparent"}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-full ${isActive ? "bg-[#8cbbed] text-white" : "bg-slate-200 text-slate-500"} flex items-center justify-center font-bold text-lg shrink-0`}>{initial}</div>
+                    {conversation.other_user_avatar ? (
+                      <img src={conversation.other_user_avatar} alt={conversation.other_user_name} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-full ${isActive ? "bg-[#8cbbed] text-white" : "bg-slate-200 text-slate-500"} flex items-center justify-center font-bold text-lg shrink-0`}>{initial}</div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-1">
                         <h4 className="font-bold text-slate-800 truncate">{conversation.other_user_name || "User"}</h4>
@@ -243,10 +247,21 @@ export const MessagesPage = () => {
       <div className="w-2/3 flex flex-col bg-white">
         {selectedConversation ? (
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white shadow-sm z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#8cbbed] text-white flex items-center justify-center font-bold">{selectedConversation.other_user_name?.slice(0, 1).toUpperCase() || "?"}</div>
+            <div 
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" 
+              onClick={() => {
+                if (selectedConversation.other_user_id) {
+                  router.push(`/profile/${selectedConversation.other_user_id}`);
+                }
+              }}
+            >
+              {selectedConversation.other_user_avatar ? (
+                <img src={selectedConversation.other_user_avatar} alt={selectedConversation.other_user_name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-[#8cbbed] text-white flex items-center justify-center font-bold">{selectedConversation.other_user_name?.slice(0, 1).toUpperCase() || "?"}</div>
+              )}
               <div>
-                <h3 className="font-bold text-slate-800">{selectedConversation.other_user_name || "User"}</h3>
+                <h3 className="font-bold text-slate-800 hover:text-[#8cbbed] transition-colors">{selectedConversation.other_user_name || "User"}</h3>
                 <p className="text-xs text-slate-500">Lagi chat dengan {selectedConversation.other_user_email || "-"}</p>
               </div>
             </div>
@@ -270,7 +285,13 @@ export const MessagesPage = () => {
               return (
             <div key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
               <div className={`flex gap-3 max-w-[70%] ${isMine ? "flex-row-reverse" : "flex-row"}`}>
-                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm text-slate-600 shrink-0">{(message.sender_name || "?").slice(0, 1).toUpperCase()}</div>
+                {isMine ? null : (
+                  selectedConversation?.other_user_avatar ? (
+                    <img src={selectedConversation.other_user_avatar} alt={selectedConversation.other_user_name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm text-slate-600 shrink-0">{(message.sender_name || "?").slice(0, 1).toUpperCase()}</div>
+                  )
+                )}
                 <div>
                   <div className={`p-4 rounded-2xl text-sm leading-relaxed ${isMine ? "bg-[#8cbbed] text-white rounded-tr-sm" : "bg-white border border-slate-200 text-slate-700 rounded-tl-sm"}`}>{message.content}</div>
                   <span className={`text-xs text-slate-400 mt-1 block ${isMine ? "text-right" : "text-left"}`}>{formatTime(message.created_at)}</span>

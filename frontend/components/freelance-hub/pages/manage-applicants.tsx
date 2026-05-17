@@ -322,15 +322,15 @@ export const ManageApplicantsPage = () => {
               .map(applicant => (
             <div key={applicant.id} className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border ${applicant.status === "HIRED" ? "border-green-400 bg-green-50" : applicant.status === "COMPLETED" ? "border-blue-400 bg-blue-50" : applicant.status === "REJECTED" ? "border-slate-200 opacity-60" : "border-slate-200"} flex flex-col md:flex-row gap-6 items-start md:items-center`}>
               {applicant.avatar ? (
-                <img src={applicant.avatar} alt={applicant.name} className="w-16 h-16 rounded-full object-cover shadow-sm border border-slate-100" />
+                <img src={applicant.avatar} alt={applicant.name} onClick={() => router.push(`/profile/${applicant.freelancerId}`)} className="cursor-pointer w-16 h-16 rounded-full object-cover shadow-sm border border-slate-100" />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-[#8cbbed] flex items-center justify-center text-white font-bold text-2xl shadow-sm border-2 border-white shrink-0">
+                <div onClick={() => router.push(`/profile/${applicant.freelancerId}`)} className="cursor-pointer w-16 h-16 rounded-full bg-[#8cbbed] flex items-center justify-center text-white font-bold text-2xl shadow-sm border-2 border-white shrink-0">
                   {applicant.name.charAt(0)}
                 </div>
               )}
-              <div className="flex-1">
+              <div className="flex-1 cursor-pointer group" onClick={() => router.push(`/profile/${applicant.freelancerId}`)}>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-slate-800">{applicant.name}</h3>
+                  <h3 className="text-lg font-bold text-slate-800 group-hover:text-[#8cbbed] transition-colors">{applicant.name}</h3>
                   {applicant.status === "HIRED" && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">Diterima</span>}
                   {applicant.status === "COMPLETED" && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-bold">Pekerjaan Selesai</span>}
                   {applicant.status === "REJECTED" && <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-bold">Ditolak</span>}

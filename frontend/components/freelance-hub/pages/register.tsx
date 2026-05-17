@@ -252,7 +252,7 @@ export const RegisterPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form className="space-y-6">
             {step === 1 ? (
               <div className="space-y-4 animate-fade-in-up">
                 <div>
@@ -356,7 +356,7 @@ export const RegisterPage = () => {
                     Lanjut
                   </Button>
                 ) : (
-                  <Button id="register-submit" type="submit" variant="primary" className="min-w-32" size="lg" disabled={isSubmitting}>
+                  <Button id="register-submit" type="button" onClick={handleSubmit as any} variant="primary" className="min-w-32" size="lg" disabled={isSubmitting}>
                     {isSubmitting ? "Membuat akun..." : "Daftar Akun"}
                   </Button>
                 )}
