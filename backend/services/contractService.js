@@ -1,7 +1,7 @@
 const db = require('../database');
 
 async function getProjectById(projectId) {
-  const result = await db.query('SELECT id, client_id, status FROM projects WHERE id = $1', [projectId]);
+  const result = await db.query('SELECT id, client_id, status, budget_min, budget_max, job_type FROM projects WHERE id = $1', [projectId]);
   return result.rows[0] || null;
 }
 
@@ -54,11 +54,16 @@ async function createContractForClient(clientId, payload) {
   try {
     await client.query('BEGIN');
 
+    let finalAmount = bid.bid_amount;
+    if (!finalAmount || Number(finalAmount) <= 0) {
+      finalAmount = project.budget_max || project.budget_min || 0;
+    }
+
     const result = await client.query(
       `INSERT INTO contracts (bid_id, project_id, client_id, freelancer_id, agreed_amount, started_at, ended_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [bid_id, bid.project_id, clientId, bid.freelancer_id, bid.bid_amount, started_at, ended_at]
+      [bid_id, bid.project_id, clientId, bid.freelancer_id, finalAmount, started_at, ended_at]
     );
 
     const contract = result.rows[0];
